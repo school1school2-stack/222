@@ -367,7 +367,7 @@
                 <!-- Circular Timer -->
                 <div class="flex items-center gap-2.5">
                     <span id="timer-label" class="hidden sm:inline text-xs font-bold text-sky-600">وقت ممتاز</span>
-                    <div class="relative w-14 h-14 flex items-center justify-center">
+                    <div id="timer-badge-wrapper" class="relative w-14 h-14 flex items-center justify-center rounded-full">
                         <svg class="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
                             <circle cx="28" cy="28" r="24" stroke="currentColor" stroke-width="4.5" fill="transparent" class="text-slate-200"></circle>
                             <circle id="timer-circle" cx="28" cy="28" r="24" stroke="currentColor" stroke-width="4.5" fill="transparent" stroke-dasharray="150.796" stroke-dashoffset="0" stroke-linecap="round" class="text-sky-500 transition-all duration-1000"></circle>
@@ -381,7 +381,7 @@
             <div class="bg-white/95 backdrop-blur rounded-3xl p-6 sm:p-8 shadow-xl border border-sky-100 space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
                     <span id="question-category" class="text-xs font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800">علامات الإعراب</span>
-                    <span id="question-number-badge" class="text-xs font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-700">سؤال <span id="current-q-num">1</span></span>
+                    <span id="question-number-badge" class="text-xs font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-700">سؤال <span id="current-q-num">1</span> من <span id="total-q-num">15</span></span>
                 </div>
 
                 <h2 id="question-text" class="text-lg sm:text-2xl font-black text-slate-800 leading-relaxed"></h2>
@@ -494,6 +494,7 @@
         let gameTimerInterval = null;
         let totalTimeSeconds = 60;
         let remainingSeconds = 60;
+        let totalModelQuestionsCount = 0;
         let currentScore = 0;
         let currentStreak = 0;
         let correctCount = 0;
@@ -501,6 +502,7 @@
         let activeQuestionsQueue = [];
         let currentQuestionObj = null;
         let isQuestionAnswered = false;
+        let isGameEnding = false;
         const TEACHER_PASSCODE = "Aztlg1512";
         const TEACHER_AUTHORIZED_EMAILS = ["t486739@rb.moe.gov.sa"];
 
@@ -837,13 +839,16 @@
                 skill: ['est', 'ikm', 'swh', 'arb', 'sah', 'math'][idx % 6]
             }));
 
+            const totalQuestionsInModel = Math.max(totalModelQuestionsCount || finalAnswered || 1, 1);
+
             const payload = {
                 name: formattedStudentName,
                 student_name: displayChallenger,
                 class_name: studentInfo.className,
                 email: studentInfo.madrasatiEmail.toLowerCase(),
                 score: finalCorrect,
-                total: Math.max(finalAnswered, 1),
+                total: totalQuestionsInModel,
+                answered: finalAnswered,
                 points: finalScore,
                 model_id: modelId,
                 answers: mappedAnswers,
@@ -990,6 +995,17 @@
                     osc.start(now + i * 0.14);
                     osc.stop(now + i * 0.14 + 0.3);
                 });
+            } else if (type === 'countdown') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(720, now);
+                gain.gain.setValueAtTime(0.28, now);
+                gain.gain.exponentialRampToValueAtTime(0.005, now + 0.07);
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.start(now);
+                osc.stop(now + 0.07);
             } else if (type === 'tick') {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -1005,13 +1021,26 @@
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.type = 'square';
-                osc.frequency.setValueAtTime(1040, now);
-                gain.gain.setValueAtTime(0.65, now);
+                osc.frequency.setValueAtTime(1080, now);
+                gain.gain.setValueAtTime(0.68, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
                 osc.connect(gain);
                 gain.connect(masterGain);
                 osc.start(now);
                 osc.stop(now + 0.14);
+            } else if (type === 'timeup') {
+                [440, 349.23, 261.63].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.15);
+                    gain.gain.setValueAtTime(0.7, now + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(masterGain);
+                    osc.start(now + i * 0.15);
+                    osc.stop(now + i * 0.15 + 0.35);
+                });
             } else if (type === 'victory') {
                 [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98].forEach((freq, i) => {
                     const osc = audioCtx.createOscillator();
@@ -1769,6 +1798,7 @@
 
         function buildShuffledQueue() {
             const pool = questionBank.length > 0 ? questionBank : defaultQuestionBank;
+            totalModelQuestionsCount = pool.length;
             const shuffled = [...pool].sort(() => Math.random() - 0.5);
             return shuffled.map(q => {
                 const indices = (q.options || []).map((_, idx) => idx).sort(() => Math.random() - 0.5);
@@ -1800,6 +1830,7 @@
             currentStreak = 0;
             correctCount = 0;
             answeredCount = 0;
+            isGameEnding = false;
             userHistory = [];
             activeQuestionsQueue = buildShuffledQueue();
 
@@ -1814,16 +1845,21 @@
             gameScreen.classList.add('flex');
 
             updateScoreBoard();
-            updateTimerUI();
+            updateTimerUI(false);
             loadNextQuestion();
 
             if (gameTimerInterval) clearInterval(gameTimerInterval);
             gameTimerInterval = setInterval(() => {
                 remainingSeconds--;
-                updateTimerUI();
                 if (remainingSeconds <= 0) {
+                    remainingSeconds = 0;
+                    updateTimerUI(false);
                     clearInterval(gameTimerInterval);
-                    endGame();
+                    gameTimerInterval = null;
+                    playSound('timeup');
+                    endGame(true);
+                } else {
+                    updateTimerUI(true);
                 }
             }, 1000);
         }
@@ -1834,40 +1870,65 @@
             if (streakEl) streakEl.textContent = currentStreak;
         }
 
-        function updateTimerUI() {
+        function updateTimerUI(playCountdownSound = false) {
             const mins = Math.floor(Math.max(0, remainingSeconds) / 60);
             const secs = Math.max(0, remainingSeconds) % 60;
             document.getElementById('timer-text').textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
             const circle = document.getElementById('timer-circle');
             const label = document.getElementById('timer-label');
+            const wrapper = document.getElementById('timer-badge-wrapper');
             const circumference = 150.796;
             const ratio = Math.max(0, remainingSeconds / Math.max(1, totalTimeSeconds));
+
             if (circle) {
                 circle.style.strokeDashoffset = String(circumference * (1 - ratio));
                 circle.classList.remove('text-sky-500', 'text-amber-500', 'text-rose-500');
-                if (remainingSeconds <= 10) {
+                if (wrapper) wrapper.classList.remove('animate-pulse-fast', 'bg-rose-50');
+
+                if (remainingSeconds <= 10 && remainingSeconds > 0) {
                     circle.classList.add('text-rose-500');
-                    if (label) label.textContent = "الوقت يوشك على الانتهاء";
-                    if (remainingSeconds > 0) playSound('urgent');
-                } else if (ratio <= 0.35) {
+                    if (wrapper) wrapper.classList.add('animate-pulse-fast', 'bg-rose-50');
+                    if (label) {
+                        label.textContent = "الوقت يوشك على الانتهاء";
+                        label.className = "hidden sm:inline text-xs font-extrabold text-rose-600";
+                    }
+                    if (playCountdownSound) playSound('urgent');
+                } else if (ratio <= 0.35 && remainingSeconds > 0) {
                     circle.classList.add('text-amber-500');
-                    if (label) label.textContent = "أسرع قليلاً";
-                } else {
+                    if (label) {
+                        label.textContent = "أسرع قليلاً";
+                        label.className = "hidden sm:inline text-xs font-bold text-amber-600";
+                    }
+                    if (playCountdownSound) playSound('countdown');
+                } else if (remainingSeconds > 0) {
                     circle.classList.add('text-sky-500');
-                    if (label) label.textContent = "وقت ممتاز";
+                    if (label) {
+                        label.textContent = "وقت ممتاز";
+                        label.className = "hidden sm:inline text-xs font-bold text-sky-600";
+                    }
+                    if (playCountdownSound) playSound('countdown');
                 }
             }
         }
 
         function loadNextQuestion() {
+            if (remainingSeconds <= 0 || isGameEnding) {
+                endGame(true);
+                return;
+            }
             if (activeQuestionsQueue.length === 0) {
                 activeQuestionsQueue = buildShuffledQueue();
             }
             currentQuestionObj = activeQuestionsQueue.shift();
             isQuestionAnswered = false;
 
-            document.getElementById('current-q-num').textContent = answeredCount + 1;
+            const currentDisplayNum = Math.min(answeredCount + 1, Math.max(1, totalModelQuestionsCount));
+            const totalDisplayNum = Math.max(1, totalModelQuestionsCount);
+            document.getElementById('current-q-num').textContent = currentDisplayNum;
+            const totalQEl = document.getElementById('total-q-num');
+            if (totalQEl) totalQEl.textContent = totalDisplayNum;
+
             document.getElementById('question-category').textContent = currentQuestionObj.category || 'قواعد نحوية';
             document.getElementById('question-text').textContent = currentQuestionObj.question;
 
@@ -1892,7 +1953,7 @@
         }
 
         function selectOption(chosenIdx, clickedBtn) {
-            if (isQuestionAnswered || !currentQuestionObj) return;
+            if (isQuestionAnswered || !currentQuestionObj || remainingSeconds <= 0 || isGameEnding) return;
             isQuestionAnswered = true;
             answeredCount++;
 
@@ -1954,14 +2015,17 @@
         }
 
         function nextQuestion() {
-            if (remainingSeconds <= 0) {
-                endGame();
+            if (remainingSeconds <= 0 || isGameEnding) {
+                endGame(true);
                 return;
             }
             loadNextQuestion();
         }
 
-        function endGame() {
+        function endGame(finishedByTime = false) {
+            if (isGameEnding) return;
+            isGameEnding = true;
+
             if (gameTimerInterval) {
                 clearInterval(gameTimerInterval);
                 gameTimerInterval = null;
@@ -1988,14 +2052,18 @@
             const subEl = document.getElementById('result-subtitle');
             const badgeEl = document.getElementById('result-badge-icon');
 
-            if (accuracy >= 70 && correctCount > 0) {
+            if (finishedByTime) {
+                titleEl.textContent = "انتهى الوقت وتم إرسال النتيجة!";
+                subEl.textContent = `تم تسجيل إجاباتك (${answeredCount} سؤال من أصل ${Math.max(1, totalModelQuestionsCount)}) وإرسال النتيجة تلقائياً يا ${getChallengerDisplayName()}.`;
+                badgeEl.className = "w-20 h-20 rounded-3xl bg-sky-100 text-sky-600 flex items-center justify-center mx-auto mb-4 shadow-inner";
+            } else if (accuracy >= 70 && correctCount > 0) {
                 titleEl.textContent = "مبروك الفوز والتفوق!";
                 subEl.textContent = `أداء رائع يا ${getChallengerDisplayName()}!`;
                 badgeEl.className = "w-20 h-20 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 shadow-inner animate-bounce-short";
                 playSound('victory');
                 triggerConfetti(90);
             } else {
-                titleEl.textContent = "انتهى وقت التحدي!";
+                titleEl.textContent = "انتهى التحدي!";
                 subEl.textContent = "محاولة جيدة، راجع الشروحات وحاول مجدداً";
                 badgeEl.className = "w-20 h-20 rounded-3xl bg-sky-100 text-sky-600 flex items-center justify-center mx-auto mb-4 shadow-inner";
                 playSound('tick');
@@ -2006,7 +2074,7 @@
             const reviewContainer = document.getElementById('review-container');
             reviewContainer.innerHTML = '';
             if (userHistory.length === 0) {
-                reviewContainer.innerHTML = `<p class="text-center text-slate-400 py-4">لم تتم الإجابة على أي سؤال خلال هذا التحدي.</p>`;
+                reviewContainer.innerHTML = `<p class="text-center text-slate-400 py-4">لم تتم الإجابة على أي سؤال قبل انتهاء الوقت، وتم إرسال النتيجة الحالية.</p>`;
             } else {
                 userHistory.forEach((item, idx) => {
                     const row = document.createElement('div');
@@ -2030,6 +2098,7 @@
                 clearInterval(gameTimerInterval);
                 gameTimerInterval = null;
             }
+            isGameEnding = false;
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('flex');
             document.getElementById('results-screen').classList.add('hidden');
