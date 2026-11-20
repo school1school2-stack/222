@@ -98,12 +98,12 @@
                 </div>
                 <div>
                     <div class="flex items-center gap-1.5">
-                        <h1 id="lesson-title" class="text-xl font-bold bg-gradient-to-r from-sky-700 to-indigo-800 bg-clip-text text-transparent">تحدي الفعل المضارع</h1>
+                        <h1 id="lesson-title" onclick="cycleQuickModelFromHeader()" class="text-xl font-bold bg-gradient-to-r from-sky-700 to-indigo-800 bg-clip-text text-transparent cursor-pointer" title="انقر للتبديل السريع بين النماذج">تحدي الفعل المضارع</h1>
                         <button type="button" id="edit-lesson-title-btn" onclick="editLessonTitle()" class="hidden p-1 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition" title="تعديل عنوان الدرس">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
                     </div>
-                    <p id="lesson-subtitle" class="text-xs text-slate-500 font-medium">رفع، نصب، جزم، والأفعال الخمسة</p>
+                    <p id="lesson-subtitle" class="text-xs text-slate-500 font-medium">النموذج النشط • رفع، نصب، جزم، والأفعال الخمسة</p>
                 </div>
             </div>
 
@@ -242,6 +242,18 @@
                     </select>
                 </div>
 
+                <!-- Share Link Box for Active Model -->
+                <div class="mb-3 p-3 rounded-xl bg-sky-50/90 border border-sky-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                    <div class="min-w-0 flex-grow">
+                        <div class="text-[11px] font-extrabold text-sky-900 mb-1">رابط مشاركة النموذج الحالي:</div>
+                        <input type="text" id="active-model-share-link" readonly dir="ltr" class="w-full px-2.5 py-1.5 rounded-lg bg-white border border-sky-200 text-xs font-mono text-slate-700 focus:outline-none">
+                    </div>
+                    <button type="button" onclick="copyActiveModelShareLink()" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow transition whitespace-nowrap shrink-0">
+                        نسخ الرابط
+                    </button>
+                </div>
+                <div id="share-link-copy-msg" class="hidden text-[11px] font-bold text-emerald-700 mb-2">تم نسخ رابط النموذج بنجاح</div>
+
                 <div id="models-list-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto custom-scrollbar">
                     <!-- Models cards injected here -->
                 </div>
@@ -311,9 +323,12 @@
 
             <!-- List of All Questions -->
             <div>
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <h3 class="text-sm font-extrabold text-slate-700">قائمة جميع الأسئلة (<span id="manage-q-count">15</span>)</h3>
-                    <button type="button" onclick="resetToDefaultQuestions()" class="text-xs text-amber-600 hover:text-amber-700 font-bold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 transition">استعادة الأسئلة الافتراضية</button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="clearCurrentModelQuestions()" class="text-xs text-rose-700 hover:text-rose-800 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 transition">تصفير الأسئلة</button>
+                        <button type="button" onclick="resetToDefaultQuestions()" class="text-xs text-amber-600 hover:text-amber-700 font-bold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 transition">استعادة الأسئلة الافتراضية</button>
+                    </div>
                 </div>
                 <div id="all-questions-list" class="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar pr-1"></div>
             </div>
@@ -634,10 +649,84 @@
             if (!clean) return;
             lessonTitleText = clean;
             const headerTitle = document.getElementById('lesson-title');
+            const subtitleEl = document.getElementById('lesson-subtitle');
             const footerTitle = document.getElementById('footer-title');
+            const active = getActiveModel();
+            const qCount = active && Array.isArray(active.questions) ? active.questions.length : 0;
+
             if (headerTitle) headerTitle.textContent = clean;
+            if (subtitleEl) subtitleEl.textContent = `${clean} (${qCount} سؤال) • رفع، نصب، جزم، والأفعال الخمسة`;
             if (footerTitle) footerTitle.textContent = `${clean} • تطبيق تعليمي تفاعلي لقواعد اللغة العربية`;
             document.title = `${clean} - لعبة تعليمية تفاعلية`;
+        }
+
+        function cycleQuickModelFromHeader() {
+            if (!Array.isArray(quizModels) || quizModels.length <= 1) return;
+            const currentIdx = quizModels.findIndex(m => m.id.toString() === (activeModelId || '').toString());
+            const nextIdx = (currentIdx + 1) % quizModels.length;
+            switchActiveModel(quizModels[nextIdx].id);
+            playSound('tick');
+        }
+
+        function buildModelShareUrl(model) {
+            const targetModel = model || getActiveModel();
+            const baseHref = window.location.href || '';
+            let urlObj;
+
+            try {
+                if (baseHref && !baseHref.startsWith('blob:') && !baseHref.startsWith('about:')) {
+                    urlObj = new URL(baseHref);
+                } else {
+                    const fallbackOrigin = (window.location.origin && window.location.origin !== 'null')
+                        ? window.location.origin
+                        : 'https://aztlg-494c3.web.app';
+                    urlObj = new URL(`${fallbackOrigin}/index.html`);
+                }
+            } catch (_) {
+                urlObj = new URL('https://aztlg-494c3.web.app/index.html');
+            }
+
+            // إزالة أي هاش أو معاملات قديمة ثم ضبط معرف النموذج وعنوانه بشكل نظيف
+            urlObj.hash = '';
+            urlObj.search = '';
+            urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
+            urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
+            return urlObj.toString();
+        }
+
+        function refreshShareLinkUI() {
+            const shareInput = document.getElementById('active-model-share-link');
+            if (shareInput) {
+                shareInput.value = buildModelShareUrl(getActiveModel());
+            }
+        }
+
+        function copyActiveModelShareLink() {
+            const shareInput = document.getElementById('active-model-share-link');
+            const msgEl = document.getElementById('share-link-copy-msg');
+            if (!shareInput) return;
+
+            const linkValue = buildModelShareUrl(getActiveModel());
+            shareInput.value = linkValue;
+            shareInput.select();
+            shareInput.setSelectionRange(0, linkValue.length);
+
+            let copied = false;
+            try {
+                copied = document.execCommand('copy');
+            } catch (_) {
+                copied = false;
+            }
+
+            if (!copied && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                navigator.clipboard.writeText(linkValue).catch(() => {});
+            }
+
+            if (msgEl) {
+                msgEl.textContent = "تم نسخ رابط النموذج بنجاح";
+                msgEl.classList.remove('hidden');
+                setTimeout(() => msgEl.classList.add('hidden'), 2500);
+            }
         }
 
         function editLessonTitle() {
@@ -645,8 +734,14 @@
             const current = lessonTitleText;
             const next = prompt("أدخل عنوان الدرس الجديد:", current);
             if (next && next.trim()) {
-                applyLessonTitle(next.trim());
-                localStorage.setItem('arabic_grammar_lesson_title', next.trim());
+                const cleanTitle = next.trim();
+                const active = getActiveModel();
+                if (active) {
+                    active.name = cleanTitle;
+                }
+                applyLessonTitle(cleanTitle);
+                localStorage.setItem('arabic_grammar_lesson_title', cleanTitle);
+                saveQuestionsToStorage();
             }
         }
 
@@ -1422,13 +1517,13 @@
             const newModel = {
                 id: `model_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 name: modelName,
-                questions: Array.isArray(customQuestions) && customQuestions.length > 0
-                    ? customQuestions
-                    : [...defaultQuestionBank.map((q, idx) => ({ ...q, id: `${Date.now()}_def_${idx}` }))]
+                questions: Array.isArray(customQuestions) ? customQuestions : []
             };
             quizModels.push(newModel);
             activeModelId = newModel.id;
             if (nameInput && customName === null) nameInput.value = '';
+            applyLessonTitle(modelName);
+            localStorage.setItem('arabic_grammar_lesson_title', modelName);
             saveQuestionsToStorage();
             syncQuestionBankWithActiveModel();
             if (document.getElementById('manage-screen') && !document.getElementById('manage-screen').classList.contains('hidden')) {
@@ -1650,30 +1745,45 @@
             document.getElementById('game-screen').classList.remove('flex');
             document.getElementById('results-screen').classList.add('hidden');
             document.getElementById('manage-screen').classList.remove('hidden');
-            renderModelsUI();
             renderAllQuestionsList();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            refreshShareLinkUI();
         }
 
-        function closeQuestionManager() {
-            cancelEditMode();
-            document.getElementById('manage-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
+        function syncQuestionBankWithActiveModel() {
+            const active = getActiveModel();
+            questionBank = Array.isArray(active.questions) ? active.questions : [];
+            if (active && active.name) {
+                applyLessonTitle(active.name);
+                localStorage.setItem('arabic_grammar_lesson_title', active.name);
+            }
             updateQuestionCounters();
+            renderModelsUI();
+            refreshShareLinkUI();
             evaluateAttemptLockState();
         }
 
         function cancelEditMode() {
             const editIdEl = document.getElementById('edit-q-id');
-            const titleEl = document.getElementById('form-mode-title');
-            const cancelBtn = document.getElementById('cancel-edit-btn');
-            const submitBtn = document.getElementById('submit-q-btn');
-            const form = document.getElementById('add-question-form');
             if (editIdEl) editIdEl.value = '';
-            if (titleEl) titleEl.textContent = '➕ إضافة سؤال جديد إلى النموذج الحالي';
+            const formEl = document.getElementById('add-question-form');
+            if (formEl) formEl.reset();
+            const modeTitle = document.getElementById('form-mode-title');
+            if (modeTitle) modeTitle.textContent = '➕ إضافة سؤال جديد إلى النموذج الحالي';
+            const cancelBtn = document.getElementById('cancel-edit-btn');
             if (cancelBtn) cancelBtn.classList.add('hidden');
+            const submitBtn = document.getElementById('submit-q-btn');
             if (submitBtn) submitBtn.textContent = 'حفظ السؤال';
-            if (form) form.reset();
+        }
+
+        function saveQuestionsToStorage() {
+            const active = getActiveModel();
+            active.questions = questionBank;
+            localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
+            localStorage.setItem('arabic_grammar_active_model_id_v3', active.id.toString());
+            localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
+            updateQuestionCounters();
+            renderModelsUI();
+            refreshShareLinkUI();
         }
 
         function editQuestionById(qId) {
@@ -1698,6 +1808,24 @@
             questionBank = questionBank.filter(q => q.id.toString() !== qId.toString());
             saveQuestionsToStorage();
             renderAllQuestionsList();
+        }
+
+        function clearCurrentModelQuestions() {
+            questionBank = [];
+            cancelEditMode();
+            saveQuestionsToStorage();
+            renderAllQuestionsList();
+            const fb = document.getElementById('form-feedback');
+            if (fb) {
+                fb.textContent = "تم تصفير أسئلة النموذج الحالي بنجاح، يمكنك الآن لصق أسئلتك الجديدة";
+                fb.className = "text-xs font-bold text-rose-700";
+                fb.classList.remove('hidden');
+                setTimeout(() => {
+                    fb.classList.add('hidden');
+                    fb.className = "text-xs font-bold text-emerald-600 hidden";
+                }, 3000);
+            }
+            playSound('tick');
         }
 
         function resetToDefaultQuestions() {
@@ -2183,14 +2311,45 @@
         }
 
         window.onload = function() {
-            const savedTitle = localStorage.getItem('arabic_grammar_lesson_title');
-            if (savedTitle) {
-                applyLessonTitle(savedTitle);
-            }
+            let sharedModelId = null;
+            let sharedTitle = null;
+
+            try {
+                const currentHref = window.location.href || '';
+                if (currentHref && !currentHref.startsWith('blob:') && !currentHref.startsWith('about:')) {
+                    const parsedUrl = new URL(currentHref);
+                    const rawModel = parsedUrl.searchParams.get('model');
+                    sharedModelId = rawModel ? decodeURIComponent(rawModel) : null;
+                    sharedTitle = parsedUrl.searchParams.get('title');
+                }
+            } catch (_) {}
+
             updateTeacherRoleUI();
             loadStudentInfo();
             loadHighScore();
             loadQuestionsFromStorage();
+
+            if (sharedModelId && quizModels.some(m => m.id.toString() === sharedModelId.toString())) {
+                activeModelId = sharedModelId;
+                localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
+                syncQuestionBankWithActiveModel();
+            }
+
+            if (sharedTitle && sharedTitle.trim()) {
+                const cleanSharedTitle = sharedTitle.trim();
+                const active = getActiveModel();
+                if (active) active.name = cleanSharedTitle;
+                applyLessonTitle(cleanSharedTitle);
+                localStorage.setItem('arabic_grammar_lesson_title', cleanSharedTitle);
+                saveQuestionsToStorage();
+            } else {
+                const savedTitle = localStorage.getItem('arabic_grammar_lesson_title');
+                if (savedTitle) {
+                    applyLessonTitle(savedTitle);
+                }
+            }
+
+            refreshShareLinkUI();
             initCloudStudentsSync();
         };
     </script>
