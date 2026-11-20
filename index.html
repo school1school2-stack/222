@@ -684,21 +684,32 @@
                 }
             } catch (_) {
                 urlObj = new URL('https://aztlg-494c3.web.app/index.html');
-            }
-
-            // إزالة أي هاش أو معاملات قديمة ثم ضبط معرف النموذج وعنوانه بشكل نظيف
+            // إزالة أي هاش أو معاملات قديمة ثم ضبط معرف النموذج وعنوانه وعدد أسئلته بشكل نظيف
             urlObj.hash = '';
             urlObj.search = '';
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
+            const qCount = Array.isArray(targetModel.questions) ? targetModel.questions.length : 0;
+            urlObj.searchParams.set('qcount', String(qCount));
             return urlObj.toString();
         }
+        function applyLessonTitle(newTitle) {
+            const clean = (newTitle || '').trim();
+            if (!clean) return;
+            lessonTitleText = clean;
+            const headerTitle = document.getElementById('lesson-title');
+            const subtitleEl = document.getElementById('lesson-subtitle');
+            const footerTitle = document.getElementById('footer-title');
+            const active = getActiveModel();
+            const qCount = active && Array.isArray(active.questions) ? active.questions.length : 0;
 
-        function refreshShareLinkUI() {
-            const shareInput = document.getElementById('active-model-share-link');
-            if (shareInput) {
-                shareInput.value = buildModelShareUrl(getActiveModel());
-            }
+            if (headerTitle) headerTitle.textContent = clean;
+            if (subtitleEl) subtitleEl.textContent = `${clean} (${qCount} سؤال) • رفع، نصب، جزم، والأفعال الخمسة`;
+            if (footerTitle) footerTitle.textContent = `${clean} • تطبيق تعليمي تفاعلي لقواعد اللغة العربية`;
+            document.title = `${clean} - لعبة تعليمية تفاعلية`;
+            const totalQBadge = document.getElementById('total-q-num');
+            if (totalQBadge && qCount > 0) totalQBadge.textContent = qCount;
+        }
         }
 
         function copyActiveModelShareLink() {
@@ -1983,7 +1994,8 @@
         }
 
         function buildShuffledQueue() {
-            const pool = questionBank.length > 0 ? questionBank : defaultQuestionBank;
+            const active = getActiveModel();
+            const pool = active && Array.isArray(active.questions) ? active.questions : questionBank;
             totalModelQuestionsCount = pool.length;
             const shuffled = [...pool].sort(() => Math.random() - 0.5);
             return shuffled.map(q => {
@@ -2313,6 +2325,7 @@
         window.onload = function() {
             let sharedModelId = null;
             let sharedTitle = null;
+            let sharedQCount = null;
 
             try {
                 const currentHref = window.location.href || '';
@@ -2321,6 +2334,10 @@
                     const rawModel = parsedUrl.searchParams.get('model');
                     sharedModelId = rawModel ? decodeURIComponent(rawModel) : null;
                     sharedTitle = parsedUrl.searchParams.get('title');
+                    const rawQCount = parsedUrl.searchParams.get('qcount');
+                    if (rawQCount !== null && !isNaN(parseInt(rawQCount, 10))) {
+                        sharedQCount = parseInt(rawQCount, 10);
+                    }
                 }
             } catch (_) {}
 
@@ -2346,6 +2363,16 @@
                 const savedTitle = localStorage.getItem('arabic_grammar_lesson_title');
                 if (savedTitle) {
                     applyLessonTitle(savedTitle);
+                }
+            }
+
+            const activeAfterLoad = getActiveModel();
+            if (sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
+                if (activeAfterLoad.questions.length > sharedQCount && sharedQCount >= 0) {
+                    activeAfterLoad.questions = activeAfterLoad.questions.slice(0, sharedQCount);
+                    questionBank = activeAfterLoad.questions;
+                    saveQuestionsToStorage();
+                    updateQuestionCounters();
                 }
             }
 
