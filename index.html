@@ -399,8 +399,8 @@
                         </div>
                     </div>
                     <div class="mt-4 flex justify-end">
-                        <button type="button" onclick="nextQuestion()" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm shadow transition flex items-center gap-1.5">
-                            <span>السؤال التالي</span>
+                        <button type="button" id="next-question-btn" onclick="nextQuestion()" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm shadow transition flex items-center gap-1.5">
+                            <span id="next-question-btn-label">السؤال التالي</span>
                             <svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </button>
                     </div>
@@ -529,11 +529,42 @@
             completedCloudAttempts.add(`${cleanEmail}::${cleanModel}`);
         }
 
+        function clearAttemptLockForEmail(email, modelName = null) {
+            const cleanEmail = (email || '').trim().toLowerCase();
+            if (!cleanEmail) return;
+            const localSet = getLocalCompletedSet();
+            const prefix = `${cleanEmail}::`;
+            const targetKey = modelName ? `${cleanEmail}::${(modelName || '').trim()}` : null;
+
+            Array.from(localSet).forEach((k) => {
+                if (targetKey ? k === targetKey : k.startsWith(prefix)) {
+                    localSet.delete(k);
+                }
+            });
+            localStorage.setItem('arabic_grammar_completed_attempts_v1', JSON.stringify(Array.from(localSet)));
+
+            Array.from(completedCloudAttempts).forEach((k) => {
+                if (targetKey ? k === targetKey : k.startsWith(prefix)) {
+                    completedCloudAttempts.delete(k);
+                }
+            });
+        }
+
+        function isStudentInAllowedList(email) {
+            const cleanEmail = (email || '').trim().toLowerCase();
+            if (!cleanEmail) return false;
+            return allowedCloudStudents.some(s => (s.email || '').toLowerCase() === cleanEmail);
+        }
+
         function hasStudentCompletedModel(email, modelName) {
             if (isTeacherAuthenticated) return false;
             const cleanEmail = (email || '').trim().toLowerCase();
             const cleanModel = (modelName || lessonTitleText || '').trim();
             if (!cleanEmail) return false;
+            // إذا لم يعد الطالب موجوداً في قائمة المسموح لهم (تم حذفه من اللوحة)، يُسمح له بالاختبار من جديد
+            if (!isStudentInAllowedList(cleanEmail)) {
+                return false;
+            }
             const key = `${cleanEmail}::${cleanModel}`;
             const localSet = getLocalCompletedSet();
             return completedCloudAttempts.has(key) || localSet.has(key);
@@ -542,6 +573,7 @@
         async function refreshCloudCompletedAttemptsForEmail(email) {
             const cleanEmail = (email || '').trim().toLowerCase();
             if (!cleanEmail || !cloudDb) return;
+            if (!isStudentInAllowedList(cleanEmail)) return;
             try {
                 const snap = await cloudDb.collection("alkfaeat_results")
                     .where("email", "==", cleanEmail)
@@ -719,6 +751,14 @@
                             className: (data.className || data.class || "").toString().trim()
                         });
                     });
+                    const previousEmails = new Set(allowedCloudStudents.map(s => s.email));
+                    const currentEmails = new Set(list.map(s => s.email));
+                    previousEmails.forEach((prevEmail) => {
+                        if (prevEmail && !currentEmails.has(prevEmail)) {
+                            clearAttemptLockForEmail(prevEmail);
+                        }
+                    });
+
                     allowedCloudStudents = list;
                     if (statusBadge) {
                         statusBadge.textContent = "متصل بالسحابة";
@@ -789,6 +829,9 @@
                     evaluateAttemptLockState();
                 });
             } else {
+                if (currentEmail) {
+                    clearAttemptLockForEmail(currentEmail);
+                }
                 if (nameEl) nameEl.value = '';
                 studentInfo.fullName = '';
                 studentInfo.madrasatiEmail = emailEl.value.trim();
@@ -1917,8 +1960,9 @@
                 endGame(true);
                 return;
             }
-            if (activeQuestionsQueue.length === 0) {
-                activeQuestionsQueue = buildShuffledQueue();
+            if (answeredCount >= totalModelQuestionsCount || activeQuestionsQueue.length === 0) {
+                endGame(false);
+                return;
             }
             currentQuestionObj = activeQuestionsQueue.shift();
             isQuestionAnswered = false;
@@ -1928,6 +1972,11 @@
             document.getElementById('current-q-num').textContent = currentDisplayNum;
             const totalQEl = document.getElementById('total-q-num');
             if (totalQEl) totalQEl.textContent = totalDisplayNum;
+
+            const nextBtnLabel = document.getElementById('next-question-btn-label');
+            if (nextBtnLabel) {
+                nextBtnLabel.textContent = currentDisplayNum === totalDisplayNum ? "إنهاء وإرسال النتيجة" : "السؤال التالي";
+            }
 
             document.getElementById('question-category').textContent = currentQuestionObj.category || 'قواعد نحوية';
             document.getElementById('question-text').textContent = currentQuestionObj.question;
@@ -2012,11 +2061,20 @@
                 correctChoice: currentQuestionObj.options[correctIdx] || "—",
                 isCorrect
             });
+
+            const nextBtnLabel = document.getElementById('next-question-btn-label');
+            if (nextBtnLabel && answeredCount >= totalModelQuestionsCount) {
+                nextBtnLabel.textContent = "إنهاء وإرسال النتيجة";
+            }
         }
 
         function nextQuestion() {
             if (remainingSeconds <= 0 || isGameEnding) {
                 endGame(true);
+                return;
+            }
+            if (answeredCount >= totalModelQuestionsCount) {
+                endGame(false);
                 return;
             }
             loadNextQuestion();
@@ -2057,14 +2115,14 @@
                 subEl.textContent = `تم تسجيل إجاباتك (${answeredCount} سؤال من أصل ${Math.max(1, totalModelQuestionsCount)}) وإرسال النتيجة تلقائياً يا ${getChallengerDisplayName()}.`;
                 badgeEl.className = "w-20 h-20 rounded-3xl bg-sky-100 text-sky-600 flex items-center justify-center mx-auto mb-4 shadow-inner";
             } else if (accuracy >= 70 && correctCount > 0) {
-                titleEl.textContent = "مبروك الفوز والتفوق!";
-                subEl.textContent = `أداء رائع يا ${getChallengerDisplayName()}!`;
+                titleEl.textContent = "أنهيت جميع الأسئلة وتم إرسال النتيجة!";
+                subEl.textContent = `أداء رائع يا ${getChallengerDisplayName()}! أتممت ${answeredCount} من ${Math.max(1, totalModelQuestionsCount)} سؤال.`;
                 badgeEl.className = "w-20 h-20 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 shadow-inner animate-bounce-short";
                 playSound('victory');
                 triggerConfetti(90);
             } else {
-                titleEl.textContent = "انتهى التحدي!";
-                subEl.textContent = "محاولة جيدة، راجع الشروحات وحاول مجدداً";
+                titleEl.textContent = "أنهيت التحدي وتم إرسال النتيجة!";
+                subEl.textContent = `أتممت ${answeredCount} من ${Math.max(1, totalModelQuestionsCount)} سؤال، راجع الشروحات أدناه.`;
                 badgeEl.className = "w-20 h-20 rounded-3xl bg-sky-100 text-sky-600 flex items-center justify-center mx-auto mb-4 shadow-inner";
                 playSound('tick');
             }
