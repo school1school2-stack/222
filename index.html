@@ -561,7 +561,7 @@
             const cleanEmail = (email || '').trim().toLowerCase();
             const cleanModel = (modelName || lessonTitleText || '').trim();
             if (!cleanEmail) return false;
-            // إذا لم يعد الطالب موجوداً في قائمة المسموح لهم (تم حذفه من اللوحة)، يُسمح له بالاختبار من جديد
+            // إذا تم حذف الطالب من قائمة المسموح لهم بالسحابة، لا يُمنع من الاختبار
             if (!isStudentInAllowedList(cleanEmail)) {
                 return false;
             }
@@ -573,11 +573,15 @@
         async function refreshCloudCompletedAttemptsForEmail(email) {
             const cleanEmail = (email || '').trim().toLowerCase();
             if (!cleanEmail || !cloudDb) return;
-            if (!isStudentInAllowedList(cleanEmail)) return;
+            if (!isStudentInAllowedList(cleanEmail)) {
+                clearAttemptLockForEmail(cleanEmail);
+                return;
+            }
             try {
                 const snap = await cloudDb.collection("alkfaeat_results")
                     .where("email", "==", cleanEmail)
                     .get();
+                if (!isStudentInAllowedList(cleanEmail)) return;
                 snap.forEach((doc) => {
                     const d = doc.data() || {};
                     const mId = (d.model_id || lessonTitleText || '').toString().trim();
@@ -745,8 +749,12 @@
                     const list = [];
                     snapshot.forEach((doc) => {
                         const data = doc.data() || {};
+                        const docEmail = (doc.id || "").toString().trim().toLowerCase();
+                        const fieldEmail = (data.email || "").toString().trim().toLowerCase();
+                        const resolvedEmail = docEmail.includes("@") ? docEmail : (fieldEmail || docEmail);
                         list.push({
-                            email: (doc.id || data.email || "").toString().trim().toLowerCase(),
+                            email: resolvedEmail,
+                            docId: docEmail,
                             name: (data.name || "").toString().trim(),
                             className: (data.className || data.class || "").toString().trim()
                         });
@@ -756,6 +764,11 @@
                     previousEmails.forEach((prevEmail) => {
                         if (prevEmail && !currentEmails.has(prevEmail)) {
                             clearAttemptLockForEmail(prevEmail);
+                        }
+                    });
+                    currentEmails.forEach((currEmail) => {
+                        if (currEmail && !previousEmails.has(currEmail)) {
+                            clearAttemptLockForEmail(currEmail);
                         }
                     });
 
@@ -900,7 +913,9 @@
 
             try {
                 await cloudDb.collection("alkfaeat_results").add(payload);
-                markAttemptCompletedLocally(studentInfo.madrasatiEmail, modelId);
+                if (isStudentInAllowedList(studentInfo.madrasatiEmail)) {
+                    markAttemptCompletedLocally(studentInfo.madrasatiEmail, modelId);
+                }
                 evaluateAttemptLockState();
                 if (bannerEl) {
                     bannerEl.textContent = "☁️ تم إرسال نتيجة الطالب إلى منصة المتابعة في السحابة بنجاح";
@@ -2091,7 +2106,9 @@
 
             const activeModel = getActiveModel();
             const modelName = activeModel ? activeModel.name : lessonTitleText;
-            markAttemptCompletedLocally(studentInfo.madrasatiEmail, modelName);
+            if (isStudentInAllowedList(studentInfo.madrasatiEmail)) {
+                markAttemptCompletedLocally(studentInfo.madrasatiEmail, modelName);
+            }
 
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('flex');
