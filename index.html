@@ -610,31 +610,70 @@
         function distributeRawQuizData(rawList) {
             if (!Array.isArray(rawList) || rawList.length === 0) return [];
             return rawList.map((item, idx) => {
-                const qText = item.q || item.question || `سؤال ${idx + 1}`;
-                const qType = item.t || item.category || "مصفوفة الأسئلة";
+                const qText = (item.q || item.question || `سؤال ${idx + 1}`).toString().trim();
+                const qType = (item.t || item.category || "مصفوفة الأسئلة").toString().trim();
+
+                // معالجة أسئلة المزاوجة (التوصيل) التي تحتوي على opts و rightOpts وترتيب ans مثل "4 2 1 3"
                 if (Array.isArray(item.rightOpts) && Array.isArray(item.opts)) {
-                    const pairsText = item.opts.map((left, i) => `${left} ← ${item.rightOpts[i] || ''}`).join(' | ');
+                    const ansTokens = (item.ans || "")
+                        .toString()
+                        .trim()
+                        .split(/\s+/)
+                        .map(token => parseInt(token, 10) - 1)
+                        .filter(n => !isNaN(n) && n >= 0 && n < item.rightOpts.length);
+
+                    const pairsList = item.opts.map((leftItem, i) => {
+                        const matchedRightIdx = ansTokens[i] !== undefined ? ansTokens[i] : i;
+                        const matchedRightText = item.rightOpts[matchedRightIdx] || item.rightOpts[0] || "";
+                        return `${leftItem} ⇐ ${matchedRightText}`;
+                    });
+
+                    const correctSummary = pairsList.join(" | ");
+                    const wrongDistractor1 = item.opts.map((leftItem, i) => {
+                        const altIdx = (i + 1) % item.rightOpts.length;
+                        return `${leftItem} ⇐ ${item.rightOpts[altIdx] || ""}`;
+                    }).join(" | ");
+                    const wrongDistractor2 = item.opts.map((leftItem, i) => {
+                        const altIdx = (i + 2) % item.rightOpts.length;
+                        return `${leftItem} ⇐ ${item.rightOpts[altIdx] || ""}`;
+                    }).join(" | ");
+                    const wrongDistractor3 = item.opts.map((leftItem, i) => {
+                        const revIdx = Math.max(0, item.rightOpts.length - 1 - i);
+                        return `${leftItem} ⇐ ${item.rightOpts[revIdx] || ""}`;
+                    }).join(" | ");
+
+                    const uniqueDistractors = Array.from(new Set([wrongDistractor1, wrongDistractor2, wrongDistractor3]))
+                        .filter(d => d && d !== correctSummary);
+
+                    const combinedOptions = [correctSummary, ...uniqueDistractors].slice(0, 4);
+                    while (combinedOptions.length < 2) {
+                        combinedOptions.push("توصيل غير صحيح");
+                    }
+
                     return {
-                        id: `raw_${Date.now()}_${idx}`,
+                        id: `raw_match_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
                         category: qType,
-                        question: `${qText} (${pairsText})`,
-                        options: [
-                            item.ans || item.rightOpts[0] || "الإجابة الصحيحة",
-                            item.rightOpts[1] || "خيار إضافي أول",
-                            item.rightOpts[2] || "خيار إضافي ثانٍ",
-                            item.rightOpts[3] || "خيار إضافي ثالث"
-                        ],
+                        question: `${qText} (${item.opts.join(" - ")})`,
+                        options: combinedOptions,
                         correct: 0,
-                        explanation: item.explanation || `الترتيب الصحيح للمزاوجة: ${item.ans || ''}`
+                        explanation: item.explanation || `التوصيل الصحيح: ${correctSummary}`
                     };
                 }
+
+                // معالجة أسئلة الاختيار من متعدد وصح وخطأ
                 const opts = Array.isArray(item.opts) && item.opts.length > 0
-                    ? item.opts
-                    : [item.ans || "صحيح", "خيار آخر"];
-                let correctIdx = opts.findIndex(o => o && item.ans && o.toString().trim() === item.ans.toString().trim());
+                    ? item.opts.map(o => (o ?? "").toString())
+                    : [item.ans || "صحيح", "خطأ"];
+
+                const targetAns = (item.ans ?? "").toString().trim();
+                let correctIdx = opts.findIndex(o => o.trim() === targetAns);
+                if (correctIdx === -1) {
+                    correctIdx = opts.findIndex(o => o.trim().includes(targetAns) || targetAns.includes(o.trim()));
+                }
                 if (correctIdx === -1) correctIdx = 0;
+
                 return {
-                    id: `raw_${Date.now()}_${idx}`,
+                    id: `raw_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
                     category: qType,
                     question: qText,
                     options: opts,
@@ -684,6 +723,7 @@
                 }
             } catch (_) {
                 urlObj = new URL('https://aztlg-494c3.web.app/index.html');
+            }
             // إزالة أي هاش أو معاملات قديمة ثم ضبط معرف النموذج وعنوانه وعدد أسئلته بشكل نظيف
             urlObj.hash = '';
             urlObj.search = '';
@@ -693,6 +733,13 @@
             urlObj.searchParams.set('qcount', String(qCount));
             return urlObj.toString();
         }
+
+        function refreshShareLinkUI() {
+            const shareInput = document.getElementById('active-model-share-link');
+            if (!shareInput) return;
+            shareInput.value = buildModelShareUrl(getActiveModel());
+        }
+
         function applyLessonTitle(newTitle) {
             const clean = (newTitle || '').trim();
             if (!clean) return;
@@ -709,7 +756,6 @@
             document.title = `${clean} - لعبة تعليمية تفاعلية`;
             const totalQBadge = document.getElementById('total-q-num');
             if (totalQBadge && qCount > 0) totalQBadge.textContent = qCount;
-        }
         }
 
         function copyActiveModelShareLink() {
@@ -1919,10 +1965,19 @@
             let rawText = textarea.value.trim();
             if (!rawText) return;
 
-            rawText = rawText.replace(/^(?:const|let|var)\s+\w+\s*=\s*/, '').replace(/;\s*$/, '');
+            // إزالة تعريف المصفوفة مثل: const rawQuizData = ... أو let ... أو var ... والفاصلة المنقوطة الختامية
+            rawText = rawText
+                .replace(/^\s*(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*/i, '')
+                .replace(/;\s*$/, '')
+                .trim();
+
             try {
                 const parsed = new Function(`return (${rawText});`)();
-                const distributed = distributeRawQuizData(Array.isArray(parsed) ? parsed : [parsed]);
+                const itemsArray = Array.isArray(parsed)
+                    ? parsed
+                    : (parsed && Array.isArray(parsed.rawQuizData) ? parsed.rawQuizData : [parsed]);
+
+                const distributed = distributeRawQuizData(itemsArray);
                 if (distributed.length === 0) return;
 
                 if (inNewModel) {
@@ -1940,6 +1995,7 @@
                 }
                 playSound('correct');
             } catch (err) {
+                console.error("Array parse error:", err);
                 if (statusEl) {
                     statusEl.textContent = "تعذر قراءة المصفوفة، تأكد من الصيغة";
                     statusEl.className = "text-xs font-bold text-rose-600";
