@@ -609,6 +609,7 @@
         let sessionCardThemeIndex = 0;
         let isDailyChallengeEnabled = false;
         let dailyChallengeQuestionCount = 10;
+        let isCloudModelsSyncInitialized = false;
         const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
         const LUXURY_BG_THEMES = [
@@ -1085,18 +1086,6 @@
             } catch (_) {}
             return picked.slice(0, targetCount);
         }
-                }
-            } catch (_) {}
-
-            const picked = shuffleArrayRandomly(pool).slice(0, targetCount);
-            try {
-                const picked = shuffleArrayRandomly(pool).slice(0, targetCount);
-                localStorage.setItem(storageKey, JSON.stringify(picked.map(q => q.id)));
-                return picked;
-            } catch (_) {
-                return shuffleArrayRandomly(pool).slice(0, targetCount);
-            }
-        }
 
         function distributeRawQuizData(itemsArray) {
             if (!Array.isArray(itemsArray) || itemsArray.length === 0) return [];
@@ -1386,6 +1375,7 @@
                     firebase.initializeApp(cloudFirebaseConfig);
                 }
                 cloudDb = firebase.firestore();
+                initCloudModelsSync();
 
                 cloudDb.collection("allowed_students").onSnapshot((snapshot) => {
                     const list = [];
@@ -2309,12 +2299,107 @@
             const active = getActiveModel();
             active.questions = questionBank;
             active.timeLimitMinutes = selectedTimeLimitMinutes || active.timeLimitMinutes || 1;
+            active.dailyChallengeEnabled = Boolean(isDailyChallengeEnabled);
+            active.dailyChallengeCount = Number(dailyChallengeQuestionCount) || 10;
             localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
             localStorage.setItem('arabic_grammar_active_model_id_v3', active.id.toString());
             localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
             updateQuestionCounters();
             renderModelsUI();
             refreshShareLinkUI();
+            syncModelToCloud(active);
+        }
+
+        function syncModelToCloud(modelObj) {
+            if (!cloudDb || !modelObj || !modelObj.id) return;
+            const safeQuestions = Array.isArray(modelObj.questions) ? modelObj.questions : [];
+            const payload = {
+                id: String(modelObj.id),
+                name: String(modelObj.name || lessonTitleText || 'نموذج التحدي'),
+                timeLimitMinutes: parseFloat(modelObj.timeLimitMinutes) || selectedTimeLimitMinutes || 1,
+                dailyChallengeEnabled: Boolean(modelObj.dailyChallengeEnabled ?? isDailyChallengeEnabled),
+                dailyChallengeCount: Number(modelObj.dailyChallengeCount ?? dailyChallengeQuestionCount) || 10,
+                questions: safeQuestions,
+                updatedAt: Date.now()
+            };
+            cloudDb.collection("quiz_models_sync").doc(String(modelObj.id)).set(payload, { merge: true }).catch((err) => {
+                console.warn("Failed to sync model to cloud:", err);
+            });
+        }
+
+        function applyCloudModelSnapshot(remoteModel) {
+            if (!remoteModel || !remoteModel.id) return;
+            const cleanId = String(remoteModel.id);
+            const cleanName = (remoteModel.name || lessonTitleText || 'نموذج التحدي').trim();
+            const cleanQuestions = Array.isArray(remoteModel.questions) ? remoteModel.questions : [];
+            const cleanTime = parseFloat(remoteModel.timeLimitMinutes) > 0 ? parseFloat(remoteModel.timeLimitMinutes) : selectedTimeLimitMinutes;
+            const cleanDailyEnabled = typeof remoteModel.dailyChallengeEnabled === 'boolean' ? remoteModel.dailyChallengeEnabled : isDailyChallengeEnabled;
+            const cleanDailyCount = Number(remoteModel.dailyChallengeCount) > 0 ? Number(remoteModel.dailyChallengeCount) : dailyChallengeQuestionCount;
+
+            const existingIdx = quizModels.findIndex(m => String(m.id) === cleanId);
+            const normalizedModel = {
+                id: cleanId,
+                name: cleanName,
+                timeLimitMinutes: cleanTime,
+                dailyChallengeEnabled: cleanDailyEnabled,
+                dailyChallengeCount: cleanDailyCount,
+                questions: cleanQuestions
+            };
+
+            if (existingIdx >= 0) {
+                if (!isTeacherAuthenticated || cleanQuestions.length > 0) {
+                    quizModels[existingIdx] = normalizedModel;
+                }
+            } else {
+                quizModels.push(normalizedModel);
+            }
+
+            if (String(activeModelId) === cleanId) {
+                questionBank = cleanQuestions;
+                selectedTimeLimitMinutes = cleanTime;
+                isDailyChallengeEnabled = cleanDailyEnabled;
+                dailyChallengeQuestionCount = cleanDailyCount;
+                localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
+                localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
+                localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
+                localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+                localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
+                applyLessonTitle(cleanName);
+                syncTimeDisplayUI();
+                syncDailyChallengeUI();
+                updateQuestionCounters();
+                renderModelsUI();
+                refreshShareLinkUI();
+                evaluateAttemptLockState();
+                if (document.getElementById('manage-screen') && !document.getElementById('manage-screen').classList.contains('hidden')) {
+                    renderAllQuestionsList();
+                }
+            } else {
+                localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
+                renderModelsUI();
+            }
+        }
+
+        function initCloudModelsSync() {
+            if (!cloudDb || isCloudModelsSyncInitialized) return;
+            isCloudModelsSyncInitialized = true;
+
+            cloudDb.collection("quiz_models_sync").onSnapshot((snapshot) => {
+                snapshot.forEach((doc) => {
+                    const data = doc.data() || {};
+                    applyCloudModelSnapshot({
+                        ...data,
+                        id: data.id || doc.id
+                    });
+                });
+
+                const currentActive = getActiveModel();
+                if (isTeacherAuthenticated && currentActive && Array.isArray(currentActive.questions) && currentActive.questions.length > 0) {
+                    syncModelToCloud(currentActive);
+                }
+            }, (err) => {
+                console.warn("Cloud models sync listener error:", err);
+            });
         }
 
         function updateQuestionCounters() {
@@ -3003,6 +3088,9 @@
                 activeModelId = sharedModelId;
                 localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
                 syncQuestionBankWithActiveModel();
+            } else if (sharedModelId) {
+                activeModelId = sharedModelId;
+                localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
             }
 
             if (sharedTimeLimit !== null) {
