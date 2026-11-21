@@ -209,7 +209,7 @@
                     <svg class="w-5 h-5 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span class="text-xs sm:text-sm font-extrabold">زمن التحدي المحدد من المعلم: <span id="student-assigned-time-label" class="text-sky-700 font-black">دقيقة واحدة (1 دقيقة)</span></span>
+                    <span class="text-xs sm:text-sm font-extrabold">زمن التحدي المحدد من المعلم: <span id="student-assigned-time-label" class="text-sky-700 font-black">دقيقة واحدة (1 دقيقة)</span> • عدد الأسئلة: <span id="student-assigned-qcount-label" class="text-indigo-700 font-black">15</span></span>
                 </div>
             </div>
 
@@ -880,10 +880,19 @@
         function syncTimeDisplayUI(fromCustomTyping = false) {
             const labelText = formatMinutesArabic(selectedTimeLimitMinutes);
             const studentBadge = document.getElementById('student-assigned-time-label');
+            const studentQBadge = document.getElementById('student-assigned-qcount-label');
             const teacherBadge = document.getElementById('teacher-current-time-badge');
             const customInput = document.getElementById('custom-time-input');
 
             if (studentBadge) studentBadge.textContent = labelText;
+            if (studentQBadge) {
+                const active = getActiveModel();
+                const poolLen = active && Array.isArray(active.questions) ? active.questions.length : questionBank.length;
+                const displayQCount = isDailyChallengeEnabled
+                    ? Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolLen)))
+                    : poolLen;
+                studentQBadge.textContent = `${displayQCount} سؤال`;
+            }
             if (teacherBadge) teacherBadge.textContent = labelText;
 
             document.querySelectorAll('.time-mode-btn').forEach(btn => {
@@ -1110,6 +1119,10 @@
             const totalQuestionsBadgeEl = document.getElementById('total-questions-count');
             if (totalQuestionsBadgeEl) {
                 totalQuestionsBadgeEl.textContent = activeChallengeCount;
+            }
+            const studentQBadge = document.getElementById('student-assigned-qcount-label');
+            if (studentQBadge) {
+                studentQBadge.textContent = `${activeChallengeCount} سؤال`;
             }
 
             const heroSubtitleEl = document.getElementById('hero-subtitle');
@@ -1348,7 +1361,8 @@
             const activeTime = parseFloat(selectedTimeLimitMinutes) || parseFloat(targetModel.timeLimitMinutes) || 1;
             const poolLen = Array.isArray(targetModel.questions) ? targetModel.questions.length : questionBank.length;
             const effectiveDaily = Boolean(isDailyChallengeEnabled);
-            const effectiveDailyCount = Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolLen)));
+            const rawDailyNum = parseInt(normalizeDigits(dailyChallengeQuestionCount), 10);
+            const effectiveDailyCount = (!isNaN(rawDailyNum) && rawDailyNum > 0) ? rawDailyNum : 10;
 
             urlObj.hash = '';
             urlObj.search = '';
@@ -1358,6 +1372,7 @@
             urlObj.searchParams.set('time', String(activeTime));
             urlObj.searchParams.set('daily', effectiveDaily ? '1' : '0');
             urlObj.searchParams.set('daily_count', String(effectiveDailyCount));
+            urlObj.searchParams.set('qcount', String(effectiveDaily ? effectiveDailyCount : poolLen));
             urlObj.searchParams.set('live', '1');
             return urlObj.toString();
         }
@@ -2556,13 +2571,13 @@
                 if (!isTeacherAuthenticated) {
                     const prevModel = quizModels[existingIdx] || {};
                     const incomingQuestions = cleanQuestions.length > 0 ? cleanQuestions : (prevModel.questions || []);
-                    const incomingTime = (!isNaN(remoteTime) && remoteTime > 0) ? remoteTime : (parseFloat(prevModel.timeLimitMinutes) || selectedTimeLimitMinutes);
+                    const incomingTime = (!isNaN(remoteTime) && remoteTime > 0) ? remoteTime : selectedTimeLimitMinutes;
                     const incomingDailyEnabled = typeof remoteModel.dailyChallengeEnabled === 'boolean'
                         ? remoteModel.dailyChallengeEnabled
-                        : (typeof prevModel.dailyChallengeEnabled === 'boolean' ? prevModel.dailyChallengeEnabled : isDailyChallengeEnabled);
+                        : isDailyChallengeEnabled;
                     const incomingDailyCount = Number(remoteModel.dailyChallengeCount) > 0
                         ? Number(remoteModel.dailyChallengeCount)
-                        : (Number(prevModel.dailyChallengeCount) > 0 ? Number(prevModel.dailyChallengeCount) : dailyChallengeQuestionCount);
+                        : dailyChallengeQuestionCount;
 
                     quizModels[existingIdx] = {
                         ...prevModel,
@@ -2938,9 +2953,13 @@
             const effectiveDaily = Boolean(isDailyChallengeEnabled || (active && active.dailyChallengeEnabled));
             const effectiveCount = Number(dailyChallengeQuestionCount) || Number(active && active.dailyChallengeCount) || 10;
 
-            const selectedPool = effectiveDaily
+            let selectedPool = effectiveDaily
                 ? pickDailyQuestionsForToday(pool, effectiveCount)
                 : pool;
+
+            if (!effectiveDaily && pool.length > 0 && effectiveCount > 0 && effectiveCount < pool.length) {
+                selectedPool = shuffleArrayRandomly(pool).slice(0, effectiveCount);
+            }
 
             totalModelQuestionsCount = selectedPool.length;
             const shuffledQuestions = shuffleArrayRandomly(selectedPool);
@@ -3408,7 +3427,16 @@
             }
 
             const activeAfterLoad = getActiveModel();
-            if (!isDailyChallengeEnabled && sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
+            if (sharedQCount !== null && !isNaN(sharedQCount) && sharedQCount > 0) {
+                if (!isDailyChallengeEnabled) {
+                    isDailyChallengeEnabled = true;
+                }
+                dailyChallengeQuestionCount = sharedQCount;
+                if (activeAfterLoad) {
+                    activeAfterLoad.dailyChallengeEnabled = true;
+                    activeAfterLoad.dailyChallengeCount = sharedQCount;
+                }
+            } else if (!isDailyChallengeEnabled && sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
                 if (sharedQCount > activeAfterLoad.questions.length && sharedQCount >= 0) {
                     activeAfterLoad.questions = activeAfterLoad.questions.slice(0, sharedQCount);
                     questionBank = activeAfterLoad.questions;
