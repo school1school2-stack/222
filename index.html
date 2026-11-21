@@ -1002,7 +1002,7 @@
             if (toggleEl) {
                 toggleEl.checked = Boolean(isDailyChallengeEnabled);
             }
-            if (countInputEl) {
+            if (countInputEl && document.activeElement !== countInputEl) {
                 countInputEl.value = String(dailyChallengeQuestionCount || 10);
             }
             if (poolStatsEl) {
@@ -1064,15 +1064,18 @@
 
         function updateDailyQuestionsCount(val) {
             if (!isTeacherAuthenticated) return;
-            const parsed = parseInt(normalizeDigits(val), 10);
+            const rawStr = normalizeDigits(val).trim();
+            if (!rawStr) return;
+            const parsed = parseInt(rawStr, 10);
             if (isNaN(parsed) || parsed < 1) return;
-            dailyChallengeQuestionCount = Math.min(parsed, 200);
+            const nextCount = Math.min(parsed, 200);
+            dailyChallengeQuestionCount = nextCount;
             const active = getActiveModel();
             if (active) {
-                active.dailyChallengeCount = dailyChallengeQuestionCount;
+                active.dailyChallengeCount = nextCount;
                 active.dailyChallengeEnabled = Boolean(isDailyChallengeEnabled);
             }
-            localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
+            localStorage.setItem('arabic_grammar_daily_count_v1', String(nextCount));
             localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
             syncDailyChallengeUI();
             updateQuestionCounters();
@@ -2379,9 +2382,13 @@
             if (existingIdx >= 0) {
                 if (!isTeacherAuthenticated) {
                     quizModels[existingIdx] = normalizedModel;
-                } else if (cleanQuestions.length > 0) {
+                } else {
                     quizModels[existingIdx] = {
-                        ...normalizedModel,
+                        ...quizModels[existingIdx],
+                        id: cleanId,
+                        name: cleanName,
+                        timeLimitMinutes: cleanTime,
+                        questions: cleanQuestions.length > 0 ? cleanQuestions : (quizModels[existingIdx].questions || []),
                         dailyChallengeEnabled: Boolean(isDailyChallengeEnabled),
                         dailyChallengeCount: Number(dailyChallengeQuestionCount) || 10
                     };
