@@ -171,20 +171,31 @@
 
             <!-- Student Info Inputs -->
             <div class="mb-6 max-w-md mx-auto bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 sm:p-5 text-right">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <label for="student-madrasati-email" class="block text-xs font-extrabold text-indigo-900">اكتب إيميلك لبدء التحدي</label>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="block text-xs font-extrabold text-indigo-900">تحقق هوية الطالب (الاسم الثلاثي + الإيميل)</span>
                     <span id="cloud-students-status" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">جاري مزامنة القائمة...</span>
                 </div>
-                <span id="student-info-error" class="block text-[11px] font-bold text-rose-600 mb-2 hidden">يرجى كتابة إيميل الطالب</span>
+                <span id="student-info-error" class="block text-[11px] font-bold text-rose-600 mb-2 hidden">يرجى كتابة الاسم الثلاثي والإيميل</span>
+
+                <label for="student-full-name" class="block text-xs font-extrabold text-indigo-900 mb-1">1. اكتب اسمك الثلاثي (إجباري) *</label>
+                <input type="text" id="student-full-name" oninput="handleEmailInputLookup()" onchange="handleEmailInputLookup()" placeholder="مثال: أحمد محمد علي" class="w-full p-3 rounded-xl border-2 border-indigo-200 focus:border-sky-500 focus:outline-none text-sm font-bold text-slate-800 bg-white text-right mb-3">
+
+                <label for="student-madrasati-email" class="block text-xs font-extrabold text-indigo-900 mb-1">2. اكتب إيميلك في منصة مدرستي *</label>
                 <input type="email" id="student-madrasati-email" dir="ltr" oninput="handleEmailInputLookup()" onchange="handleEmailInputLookup()" placeholder="student@madrasati.sa" class="w-full p-3 rounded-xl border-2 border-indigo-200 focus:border-sky-500 focus:outline-none text-sm font-bold text-slate-800 bg-white text-left">
+
                 <div id="matched-student-preview" class="mt-2.5 hidden p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-right text-xs">
-                    <div class="font-extrabold text-emerald-900">المتحدي: <span id="matched-student-name">—</span></div>
+                    <div class="font-extrabold text-emerald-900">✓ تم التحقق بنجاح: <span id="matched-student-name">—</span></div>
                     <div dir="ltr" class="font-bold text-emerald-700 text-left mt-0.5"><span id="matched-student-email">—</span></div>
+                </div>
+                <div id="name-mismatch-warning" class="mt-2.5 hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-right text-xs font-bold text-rose-700">
+                    عذراً، الاسم الثلاثي المدخل لا يطابق صاحب هذا الإيميل في السحابة. لا يُسمح بالدخول بإيميل طالب آخر.
+                </div>
+                <div id="unregistered-student-warning" class="mt-2.5 hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-right text-xs font-bold text-rose-700">
+                    عذراً، هذا الإيميل غير مسجل في قائمة الطلاب المعتمدة في السحابة ولا يُسمح له بالدخول.
                 </div>
                 <div id="already-completed-warning" class="mt-2.5 hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-right text-xs font-bold text-rose-700">
                     لقد أنهيت هذا النموذج مسبقاً ولا يُسمح بإعادة المحاولة لنفس النموذج.
                 </div>
-                <input type="hidden" id="student-full-name">
                 <input type="hidden" id="student-class">
             </div>
 
@@ -509,6 +520,7 @@
 
         let cloudDb = null;
         let allowedCloudStudents = [];
+        let isCloudStudentsLoaded = false;
         let completedCloudAttempts = new Set();
         let isTeacherAuthenticated = false;
         let isStudentSharedView = false;
@@ -552,11 +564,72 @@
         }
 
         function formatMinutesArabic(minutes) {
-            const m = parseFloat(minutes) || 1;
-            if (m === 1) return "دقيقة واحدة (1 دقيقة)";
-            if (m === 2) return "دقيقتان (2 دقيقة)";
-            if (m >= 3 && m <= 10) return `${m} دقائق`;
-            return `${m} دقيقة`;
+            const raw = parseFloat(normalizeDigits(minutes));
+            const mins = (!isNaN(raw) && raw > 0) ? raw : 1;
+            if (mins === 1) return "دقيقة واحدة (1 دقيقة)";
+            if (mins === 2) return "دقيقتان (2 دقيقة)";
+            if (mins >= 3 && mins <= 10) return `${mins} دقائق`;
+            return `${mins} دقيقة`;
+        }
+
+        function normalizeArabicName(str) {
+            return String(str || '')
+                .replace(/[\u064B-\u065F\u0670\u0640]/g, '') // إزالة التشكيل والمد والتطويل
+                .replace(/[أإآٱءؤئ]/g, 'ا') // توحيد جميع أشكال الهمزات
+                .replace(/ة/g, 'ه') // توحيد التاء المربوطة والهاء
+                .replace(/ى/g, 'ي') // توحيد الألف المقصورة والياء
+                .replace(/[^\u0621-\u064Aa-zA-Z0-9\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+        }
+
+        function getNameUnitsForComparison(nameStr) {
+            const norm = normalizeArabicName(nameStr);
+            if (!norm) return [];
+            const rawTokens = norm.split(' ').filter(Boolean);
+            const units = [];
+            const compoundPrefixes = new Set(['عبد', 'ابو', 'ذو', 'ذي']);
+            const connectorTokens = new Set(['بن', 'ابن', 'بنت']);
+
+            let i = 0;
+            while (i < rawTokens.length) {
+                const tok = rawTokens[i];
+                if (connectorTokens.has(tok)) {
+                    i++;
+                    continue;
+                }
+                if (compoundPrefixes.has(tok) && i + 1 < rawTokens.length) {
+                    let nextTok = rawTokens[i + 1];
+                    if (connectorTokens.has(nextTok) && i + 2 < rawTokens.length) {
+                        nextTok = rawTokens[i + 2];
+                        units.push(`${tok}${nextTok}`);
+                        i += 3;
+                    } else {
+                        units.push(`${tok}${nextTok}`);
+                        i += 2;
+                    }
+                } else {
+                    units.push(tok);
+                    i++;
+                }
+            }
+            return units;
+        }
+
+        function isThreePartName(nameStr) {
+            const units = getNameUnitsForComparison(nameStr);
+            return units.length >= 3;
+        }
+
+        function doesStudentNameMatchCloud(enteredName, cloudFullName) {
+            const enteredUnits = getNameUnitsForComparison(enteredName);
+            const cloudUnits = getNameUnitsForComparison(cloudFullName);
+            if (enteredUnits.length < 3 || cloudUnits.length < 3) return false;
+
+            const enteredThreeKey = enteredUnits.slice(0, 3).join('');
+            const cloudThreeKey = cloudUnits.slice(0, 3).join('');
+            return enteredThreeKey === cloudThreeKey;
         }
 
         function syncTimeDisplayUI(fromCustomTyping = false) {
@@ -1021,6 +1094,7 @@
                     });
 
                     allowedCloudStudents = list;
+                    isCloudStudentsLoaded = true;
                     if (statusBadge) {
                         statusBadge.textContent = "متصل بالسحابة";
                         statusBadge.className = "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
@@ -1028,10 +1102,12 @@
                     autofillStudentFromCloud();
                 }, (err) => {
                     console.error("Cloud students sync error:", err);
+                    isCloudStudentsLoaded = false;
                     if (statusBadge) {
-                        statusBadge.textContent = "وضع محلي";
-                        statusBadge.className = "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800";
+                        statusBadge.textContent = "تعذر الاتصال بالسحابة";
+                        statusBadge.className = "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800";
                     }
+                    evaluateAttemptLockState();
                 });
             } catch (e) {
                 console.error("Firebase init error:", e);
@@ -1040,20 +1116,37 @@
 
         function evaluateAttemptLockState() {
             const warnEl = document.getElementById('already-completed-warning');
+            const unregisteredEl = document.getElementById('unregistered-student-warning');
+            const mismatchEl = document.getElementById('name-mismatch-warning');
             const startBtn = document.getElementById('start-challenge-btn');
             const activeModel = getActiveModel();
             const modelName = activeModel ? activeModel.name : lessonTitleText;
-            const locked = hasStudentCompletedModel(studentInfo.madrasatiEmail, modelName);
+            const cleanEmail = (studentInfo.madrasatiEmail || '').trim().toLowerCase();
+            const enteredName = (studentInfo.fullName || '').trim();
 
+            const matchedRecord = cleanEmail ? allowedCloudStudents.find(s => s.email === cleanEmail) : null;
+            const isUnregistered = !isTeacherAuthenticated && cleanEmail.length > 0 && isCloudStudentsLoaded && !matchedRecord;
+            const hasEnteredThreeName = isThreePartName(enteredName);
+            const isNameMismatch = !isTeacherAuthenticated && Boolean(matchedRecord) && hasEnteredThreeName && !doesStudentNameMatchCloud(enteredName, matchedRecord.name);
+            const isIncompleteIdentity = !isTeacherAuthenticated && (!cleanEmail || !hasEnteredThreeName);
+            const locked = hasStudentCompletedModel(cleanEmail, modelName);
+
+            if (unregisteredEl) {
+                unregisteredEl.classList.toggle('hidden', !isUnregistered);
+            }
+            if (mismatchEl) {
+                mismatchEl.classList.toggle('hidden', isUnregistered || !isNameMismatch);
+            }
             if (warnEl) {
-                warnEl.classList.toggle('hidden', !locked);
+                warnEl.classList.toggle('hidden', isUnregistered || isNameMismatch || !locked);
             }
+            const shouldDisable = isIncompleteIdentity || isUnregistered || isNameMismatch || locked;
             if (startBtn) {
-                startBtn.disabled = locked;
-                startBtn.classList.toggle('opacity-50', locked);
-                startBtn.classList.toggle('cursor-not-allowed', locked);
+                startBtn.disabled = shouldDisable;
+                startBtn.classList.toggle('opacity-50', shouldDisable);
+                startBtn.classList.toggle('cursor-not-allowed', shouldDisable);
             }
-            return locked;
+            return shouldDisable;
         }
 
         function autofillStudentFromCloud() {
@@ -1063,26 +1156,25 @@
             const previewBox = document.getElementById('matched-student-preview');
             const previewName = document.getElementById('matched-student-name');
             const previewEmail = document.getElementById('matched-student-email');
-            if (!emailEl) return;
+            if (!emailEl || !nameEl) return;
 
             const currentEmail = emailEl.value.trim().toLowerCase();
+            const enteredName = nameEl.value.trim();
 
             let matched = null;
             if (currentEmail && allowedCloudStudents.length > 0) {
-                matched = allowedCloudStudents.find(s => s.email === currentEmail)
-                    || allowedCloudStudents.find(s => s.email.startsWith(currentEmail));
+                matched = allowedCloudStudents.find(s => s.email === currentEmail);
             }
 
-            if (matched) {
-                if (nameEl) nameEl.value = matched.name || '';
+            if (matched && isThreePartName(enteredName) && doesStudentNameMatchCloud(enteredName, matched.name)) {
                 if (classEl && matched.className) classEl.value = matched.className;
-                studentInfo.fullName = matched.name || '';
+                studentInfo.fullName = matched.name || enteredName;
                 studentInfo.className = matched.className || '';
                 studentInfo.madrasatiEmail = emailEl.value.trim();
                 localStorage.setItem('arabic_grammar_student_info_v1', JSON.stringify(studentInfo));
 
                 if (previewBox && previewName && previewEmail) {
-                    previewName.textContent = matched.name || currentEmail;
+                    previewName.textContent = matched.name || enteredName;
                     previewEmail.textContent = matched.email || emailEl.value.trim();
                     previewBox.classList.remove('hidden');
                 }
@@ -1090,11 +1182,10 @@
                     evaluateAttemptLockState();
                 });
             } else {
-                if (currentEmail) {
+                if (!matched && currentEmail) {
                     clearAttemptLockForEmail(currentEmail);
                 }
-                if (nameEl) nameEl.value = '';
-                studentInfo.fullName = '';
+                studentInfo.fullName = enteredName;
                 studentInfo.madrasatiEmail = emailEl.value.trim();
                 localStorage.setItem('arabic_grammar_student_info_v1', JSON.stringify(studentInfo));
                 if (previewBox) previewBox.classList.add('hidden');
@@ -1224,15 +1315,56 @@
         function validateStudentInfo() {
             saveStudentInfo();
             const errorEl = document.getElementById('student-info-error');
-            const hasEmail = Boolean((studentInfo.madrasatiEmail || '').trim());
+            const cleanEmail = (studentInfo.madrasatiEmail || '').trim().toLowerCase();
+            const enteredName = (studentInfo.fullName || '').trim();
 
-            if (!hasEmail) {
+            if (!isThreePartName(enteredName)) {
                 if (errorEl) {
-                    errorEl.textContent = "يرجى كتابة إيميلك قبل بدء التحدي";
+                    errorEl.textContent = "يرجى كتابة اسمك الثلاثي كاملاً (الاسم الأول + الأب + الجد/العائلة)";
                     errorEl.classList.remove('hidden');
                 }
                 playSound('wrong');
                 return false;
+            }
+
+            if (!cleanEmail) {
+                if (errorEl) {
+                    errorEl.textContent = "يرجى كتابة إيميلك المسجل في السحابة قبل بدء التحدي";
+                    errorEl.classList.remove('hidden');
+                }
+                playSound('wrong');
+                return false;
+            }
+
+            if (!isTeacherAuthenticated) {
+                if (!isCloudStudentsLoaded) {
+                    if (errorEl) {
+                        errorEl.textContent = "يرجى الانتظار حتى تكتمل مزامنة قائمة الطلاب من السحابة...";
+                        errorEl.classList.remove('hidden');
+                    }
+                    playSound('wrong');
+                    return false;
+                }
+                const matched = allowedCloudStudents.find(s => s.email === cleanEmail);
+                if (!matched) {
+                    if (errorEl) {
+                        errorEl.textContent = "هذا الإيميل غير مسجل في قائمة الطلاب المعتمدة في السحابة";
+                        errorEl.classList.remove('hidden');
+                    }
+                    evaluateAttemptLockState();
+                    playSound('wrong');
+                    return false;
+                }
+                if (!doesStudentNameMatchCloud(enteredName, matched.name)) {
+                    if (errorEl) {
+                        errorEl.textContent = "الاسم الثلاثي المدخل لا يطابق صاحب الإيميل في السحابة! أدخل اسمك وإيميلك الشخصي فقط.";
+                        errorEl.classList.remove('hidden');
+                    }
+                    evaluateAttemptLockState();
+                    playSound('wrong');
+                    return false;
+                }
+                studentInfo.fullName = matched.name || enteredName;
             }
             if (errorEl) errorEl.classList.add('hidden');
             return true;
