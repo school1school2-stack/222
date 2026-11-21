@@ -290,22 +290,37 @@
                         <span id="teacher-current-time-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">دقيقة واحدة (1 دقيقة)</span>
                     </div>
                     <div class="grid grid-cols-3 gap-2 mb-2.5">
-                        <button type="button" onclick="selectTimeMode(1)" id="mode-1" class="time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500">
+                        <button type="button" onpointerdown="selectTimeMode(1)" onclick="selectTimeMode(1)" id="mode-1" class="time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500">
                             <span class="text-lg font-black">1</span>
                             <span class="text-[11px] text-sky-600 font-medium">دقيقة واحدة</span>
                         </button>
-                        <button type="button" onclick="selectTimeMode(2)" id="mode-2" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
+                        <button type="button" onpointerdown="selectTimeMode(2)" onclick="selectTimeMode(2)" id="mode-2" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
                             <span class="text-lg font-black">2</span>
                             <span class="text-[11px] text-slate-500 font-medium">دقيقتان</span>
                         </button>
-                        <button type="button" onclick="selectTimeMode(3)" id="mode-3" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
+                        <button type="button" onpointerdown="selectTimeMode(3)" onclick="selectTimeMode(3)" id="mode-3" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
                             <span class="text-lg font-black">3</span>
                             <span class="text-[11px] text-slate-500 font-medium">3 دقائق</span>
                         </button>
                     </div>
                     <div class="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200">
                         <label for="custom-time-input" class="text-xs font-bold text-slate-600">أو أدخل وقتاً مخصصاً بالدقائق:</label>
-                        <input type="text" inputmode="decimal" id="custom-time-input" placeholder="مثلاً: 10 أو 20 أو 30" oninput="setCustomTime(this.value)" onchange="setCustomTime(this.value)" class="w-32 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
+                        <input type="text" inputmode="decimal" id="custom-time-input" placeholder="مثلاً: 10 أو 20 أو 30" oninput="setCustomTime(this.value)" onchange="setCustomTime(this.value)" onblur="setCustomTime(this.value)" onkeyup="setCustomTime(this.value)" class="w-32 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
+                    </div>
+                </div>
+
+                <!-- Daily Challenge Controller (Teacher Only) -->
+                <div class="mb-3 p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-black text-indigo-950">
+                            <input type="checkbox" id="daily-challenge-enabled-toggle" onchange="toggleDailyChallengeEnabled(this.checked)" onclick="toggleDailyChallengeEnabled(this.checked)" class="w-4 h-4 rounded accent-indigo-600">
+                            <span>تفعيل وضع «تحدي اليوم» (محاولة واحدة كل 24 ساعة)</span>
+                        </label>
+                        <span id="daily-pool-stats-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">بنك الأسئلة: 0 سؤال</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-indigo-200">
+                        <label for="daily-questions-count-input" class="text-xs font-bold text-slate-700">عدد الأسئلة المختارة يومياً من البنك (مثلاً 5 أو 10 أو 15):</label>
+                        <input type="number" min="1" max="200" id="daily-questions-count-input" value="10" oninput="updateDailyQuestionsCount(this.value)" onchange="updateDailyQuestionsCount(this.value)" onblur="updateDailyQuestionsCount(this.value)" onkeyup="updateDailyQuestionsCount(this.value)" class="w-28 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-indigo-500 focus:outline-none font-black text-indigo-900 text-xs bg-slate-50">
                     </div>
                 </div>
 
@@ -905,6 +920,11 @@
             const parsed = parseFloat(normalized);
             if (isNaN(parsed) || parsed <= 0) return;
             const cleanMinutes = Number(parsed);
+            if (selectedTimeLimitMinutes === cleanMinutes && !fromCustomTyping) {
+                syncTimeDisplayUI(false);
+                refreshShareLinkUI();
+                return;
+            }
             lastLocalTimeEditAt = Date.now();
             selectedTimeLimitMinutes = cleanMinutes;
             const active = getActiveModel();
@@ -1160,6 +1180,7 @@
             const parsed = parseInt(rawStr, 10);
             if (isNaN(parsed) || parsed < 1) return;
             const nextCount = Math.min(parsed, 200);
+            lastLocalTimeEditAt = Date.now();
             dailyChallengeQuestionCount = nextCount;
             const active = getActiveModel();
             if (active) {
