@@ -250,7 +250,7 @@
                     </div>
                     <div class="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200">
                         <label for="custom-time-input" class="text-xs font-bold text-slate-600">أو أدخل وقتاً مخصصاً بالدقائق:</label>
-                        <input type="number" id="custom-time-input" min="0.5" max="180" step="0.5" placeholder="مثلاً: 5" oninput="setCustomTime(this.value)" class="w-28 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
+                        <input type="text" inputmode="decimal" id="custom-time-input" placeholder="مثلاً: 10 أو 20 أو 30" oninput="setCustomTime(this.value)" onchange="setCustomTime(this.value)" class="w-32 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
                     </div>
                 </div>
 
@@ -546,6 +546,10 @@
             }
         }
 
+        function normalizeDigits(str) {
+            return String(str || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+        }
+
         function formatMinutesArabic(minutes) {
             const m = parseFloat(minutes) || 1;
             if (m === 1) return "دقيقة واحدة (1 دقيقة)";
@@ -554,7 +558,7 @@
             return `${m} دقيقة`;
         }
 
-        function syncTimeDisplayUI() {
+        function syncTimeDisplayUI(fromCustomTyping = false) {
             const labelText = formatMinutesArabic(selectedTimeLimitMinutes);
             const studentBadge = document.getElementById('student-assigned-time-label');
             const teacherBadge = document.getElementById('teacher-current-time-badge');
@@ -569,7 +573,9 @@
                 if (subText) subText.className = "text-[11px] text-slate-500 font-medium";
             });
 
-            if (selectedTimeLimitMinutes === 1 || selectedTimeLimitMinutes === 2 || selectedTimeLimitMinutes === 3) {
+            const isPreset = !fromCustomTyping && (selectedTimeLimitMinutes === 1 || selectedTimeLimitMinutes === 2 || selectedTimeLimitMinutes === 3);
+
+            if (isPreset) {
                 const activeBtn = document.getElementById(`mode-${selectedTimeLimitMinutes}`);
                 if (activeBtn) {
                     activeBtn.className = "time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500";
@@ -577,13 +583,14 @@
                     if (subText) subText.className = "text-[11px] text-sky-600 font-medium";
                 }
                 if (customInput) customInput.value = '';
-            } else if (customInput) {
+            } else if (customInput && !fromCustomTyping) {
                 customInput.value = String(selectedTimeLimitMinutes);
             }
         }
 
-        function applyTeacherTimeLimit(minutes, persist = true) {
-            const parsed = parseFloat(minutes);
+        function applyTeacherTimeLimit(minutes, persist = true, fromCustomTyping = false) {
+            const normalized = normalizeDigits(minutes).trim();
+            const parsed = parseFloat(normalized);
             if (isNaN(parsed) || parsed <= 0) return;
             selectedTimeLimitMinutes = parsed;
             const active = getActiveModel();
@@ -591,7 +598,7 @@
                 active.timeLimitMinutes = parsed;
             }
             localStorage.setItem('arabic_grammar_time_limit_v1', String(parsed));
-            syncTimeDisplayUI();
+            syncTimeDisplayUI(fromCustomTyping);
             if (persist) {
                 saveQuestionsToStorage();
             }
@@ -599,14 +606,16 @@
 
         function selectTimeMode(minutes) {
             if (!isTeacherAuthenticated) return;
-            applyTeacherTimeLimit(minutes, true);
+            applyTeacherTimeLimit(minutes, true, false);
         }
 
         function setCustomTime(val) {
             if (!isTeacherAuthenticated) return;
-            const parsed = parseFloat(val);
+            const normalized = normalizeDigits(val).trim();
+            if (!normalized) return;
+            const parsed = parseFloat(normalized);
             if (!isNaN(parsed) && parsed > 0) {
-                applyTeacherTimeLimit(parsed, true);
+                applyTeacherTimeLimit(parsed, true, true);
             }
         }
 
