@@ -154,9 +154,9 @@
                 </svg>
             </div>
             
-            <h2 id="hero-title" class="text-2xl sm:text-3xl font-black text-slate-800 mb-2">اختبر مهاراتك في إعراب الفعل المضارع</h2>
-            <p class="text-slate-600 max-w-lg mx-auto text-sm sm:text-base mb-6 leading-relaxed">
-                اختبر معرفتك بحالات رفع، نصب، وجزم الفعل المضارع، والأفعال الخمسة وعلامات الإعراب الأصلية والفرعية. أدخل إيميلك وابدأ التحدي الآن!
+            <h2 id="hero-title" class="text-2xl sm:text-3xl font-black text-slate-800 mb-2">اختبر مهاراتك في تحدي الفعل المضارع</h2>
+            <p id="hero-subtitle" class="text-slate-600 max-w-lg mx-auto text-sm sm:text-base mb-6 leading-relaxed">
+                اختبر معرفتك ومهاراتك في «تحدي الفعل المضارع» بدقة وسرعة. أدخل إيميلك وابدأ التحدي الآن!
             </p>
 
             <!-- Read-only Challenge Duration Banner for Student -->
@@ -511,6 +511,7 @@
         let allowedCloudStudents = [];
         let completedCloudAttempts = new Set();
         let isTeacherAuthenticated = false;
+        let isStudentSharedView = false;
         let studentInfo = { fullName: "", className: "", madrasatiEmail: "" };
         let audioCtx = null;
         let soundEnabled = true;
@@ -771,19 +772,24 @@
             lessonTitleText = clean;
             const headerTitle = document.getElementById('lesson-title');
             const subtitleEl = document.getElementById('lesson-subtitle');
+            const heroTitleEl = document.getElementById('hero-title');
+            const heroSubtitleEl = document.getElementById('hero-subtitle');
             const footerTitle = document.getElementById('footer-title');
             const active = getActiveModel();
             const qCount = active && Array.isArray(active.questions) ? active.questions.length : 0;
 
             if (headerTitle) headerTitle.textContent = clean;
+            if (heroTitleEl) heroTitleEl.textContent = `اختبر مهاراتك في ${clean}`;
+            if (heroSubtitleEl) heroSubtitleEl.textContent = `اختبر معرفتك ومهاراتك في «${clean}» (${qCount} سؤال) بدقة وسرعة. أدخل إيميلك وابدأ التحدي الآن!`;
             if (subtitleEl) subtitleEl.textContent = `${clean} (${qCount} سؤال) • زمن التحدي: ${formatMinutesArabic(selectedTimeLimitMinutes)}`;
-            if (footerTitle) footerTitle.textContent = `${clean} • تطبيق تعليمي تفاعلي لقواعد اللغة العربية`;
-            document.title = `${clean} - لعبة تعليمية تفاعلية`;
+            if (footerTitle) footerTitle.textContent = `${clean} • تطبيق تعليمي تفاعلي`;
+            document.title = `${clean} - تحدي تعليمي تفاعلي`;
             const totalQBadge = document.getElementById('total-q-num');
             if (totalQBadge && qCount > 0) totalQBadge.textContent = qCount;
         }
 
         function cycleQuickModelFromHeader() {
+            if (isStudentSharedView) return;
             if (!Array.isArray(quizModels) || quizModels.length <= 1) return;
             const currentIdx = quizModels.findIndex(m => m.id.toString() === (activeModelId || '').toString());
             const nextIdx = (currentIdx + 1) % quizModels.length;
@@ -811,6 +817,7 @@
 
             urlObj.hash = '';
             urlObj.search = '';
+            urlObj.searchParams.set('student', '1');
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
             const qCount = Array.isArray(targetModel.questions) ? targetModel.questions.length : 0;
@@ -893,10 +900,30 @@
         function updateTeacherRoleUI() {
             const titleEditBtn = document.getElementById('edit-lesson-title-btn');
             const manageBtn = document.getElementById('teacher-manage-btn');
+            const portalBtn = document.getElementById('teacher-portal-btn');
             const portalBtnLabel = document.getElementById('teacher-portal-btn-label');
             const manageScreen = document.getElementById('manage-screen');
             const replayBtn = document.getElementById('replay-btn');
+            const headerTitle = document.getElementById('lesson-title');
 
+            if (isStudentSharedView) {
+                isTeacherAuthenticated = false;
+                if (portalBtn) portalBtn.classList.add('hidden');
+                if (titleEditBtn) titleEditBtn.classList.add('hidden');
+                if (manageBtn) manageBtn.classList.add('hidden');
+                if (replayBtn) replayBtn.classList.add('hidden');
+                if (manageScreen) manageScreen.classList.add('hidden');
+                if (headerTitle) {
+                    headerTitle.classList.remove('cursor-pointer');
+                    headerTitle.removeAttribute('title');
+                }
+                evaluateAttemptLockState();
+                return;
+            }
+
+            if (portalBtn) {
+                portalBtn.classList.remove('hidden');
+            }
             if (titleEditBtn) {
                 titleEditBtn.classList.toggle('hidden', !isTeacherAuthenticated);
             }
@@ -916,6 +943,7 @@
         }
 
         function toggleTeacherPortal() {
+            if (isStudentSharedView) return;
             if (isTeacherAuthenticated) {
                 isTeacherAuthenticated = false;
                 updateTeacherRoleUI();
@@ -2424,8 +2452,12 @@
                 if (currentHref && !currentHref.startsWith('blob:') && !currentHref.startsWith('about:')) {
                     const parsedUrl = new URL(currentHref);
                     const rawModel = parsedUrl.searchParams.get('model');
+                    const studentFlag = parsedUrl.searchParams.get('student');
                     sharedModelId = rawModel ? decodeURIComponent(rawModel) : null;
                     sharedTitle = parsedUrl.searchParams.get('title');
+                    if (studentFlag === '1' || Boolean(sharedModelId) || Boolean(sharedTitle)) {
+                        isStudentSharedView = true;
+                    }
                     const rawQCount = parsedUrl.searchParams.get('qcount');
                     if (rawQCount !== null && !isNaN(parseInt(rawQCount, 10))) {
                         sharedQCount = parseInt(rawQCount, 10);
