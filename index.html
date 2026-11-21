@@ -196,15 +196,28 @@
             </p>
 
             <!-- Read-only Challenge Duration Banner for Student -->
-            <div class="mb-6 max-w-md mx-auto space-y-2">
-                <div id="daily-challenge-banner" class="hidden flex-col sm:flex-row items-center justify-between gap-2 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border border-amber-300 px-4 py-2.5 rounded-2xl text-amber-950 shadow-xs text-xs">
-                    <span class="font-black flex items-center gap-1.5">
-                        <span>🌟</span>
-                        <span>تحدي اليوم</span>
-                    </span>
-                    <span id="daily-challenge-date-label" class="font-extrabold text-amber-800 bg-white/80 px-2.5 py-0.5 rounded-lg border border-amber-200">—</span>
-                    <span id="daily-challenge-qcount-label" class="font-bold text-amber-900">10 أسئلة</span>
-                    <span class="text-xs sm:text-sm font-extrabold">زمن التحدي المحدد من المعلم: <span id="student-assigned-time-label" class="text-sky-700 font-black">دقيقة واحدة (1 دقيقة)</span> • عدد الأسئلة: <span id="student-assigned-qcount-label" class="text-indigo-700 font-black">0</span></span>
+            <div class="mb-6 max-w-md mx-auto">
+                <div class="bg-gradient-to-br from-amber-50/90 via-yellow-50/80 to-sky-50/90 border border-amber-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
+                    <!-- Daily Challenge Top Strip (Visible when Daily Challenge is enabled) -->
+                    <div id="daily-challenge-banner" class="hidden items-center justify-between gap-2 pb-2.5 border-b border-amber-200/70 text-xs">
+                        <span class="font-black text-amber-950 flex items-center gap-1.5">
+                            <span>🌟</span>
+                            <span>تحدي اليوم</span>
+                        </span>
+                        <span id="daily-challenge-date-label" class="font-extrabold text-amber-900 bg-white/90 px-3 py-1 rounded-xl border border-amber-200 shadow-2xs">—</span>
+                    </div>
+
+                    <!-- Clean Non-Duplicated Challenge Stats Grid -->
+                    <div class="grid grid-cols-2 gap-2.5 text-center">
+                        <div class="bg-white/95 border border-sky-200/80 rounded-xl px-3 py-2 flex flex-col items-center justify-center shadow-2xs">
+                            <span class="text-[11px] font-bold text-slate-500 mb-0.5">⏱️ زمن التحدي</span>
+                            <span id="student-assigned-time-label" class="text-xs sm:text-sm font-black text-sky-700">دقيقة واحدة (1 دقيقة)</span>
+                        </div>
+                        <div class="bg-white/95 border border-indigo-200/80 rounded-xl px-3 py-2 flex flex-col items-center justify-center shadow-2xs">
+                            <span class="text-[11px] font-bold text-slate-500 mb-0.5">📝 عدد الأسئلة</span>
+                            <span id="student-assigned-qcount-label" class="text-xs sm:text-sm font-black text-indigo-700">0 سؤال</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1099,7 +1112,6 @@
 
             const bannerEl = document.getElementById('daily-challenge-banner');
             const dateLabelEl = document.getElementById('daily-challenge-date-label');
-            const qCountLabelEl = document.getElementById('daily-challenge-qcount-label');
             const toggleEl = document.getElementById('daily-challenge-enabled-toggle');
             const countInputEl = document.getElementById('daily-questions-count-input');
             const poolStatsEl = document.getElementById('daily-pool-stats-badge');
@@ -1110,9 +1122,6 @@
             }
             if (dateLabelEl) {
                 dateLabelEl.textContent = getFormattedTodayDateArabic();
-            }
-            if (qCountLabelEl) {
-                qCountLabelEl.textContent = `${effectiveDailyCount} أسئلة لليوم`;
             }
             if (toggleEl) {
                 toggleEl.checked = Boolean(isDailyChallengeEnabled);
