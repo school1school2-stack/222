@@ -181,7 +181,7 @@
                 <input type="text" id="student-full-name" oninput="handleEmailInputLookup()" onchange="handleEmailInputLookup()" placeholder="مثال: أحمد محمد علي" class="w-full p-3 rounded-xl border-2 border-indigo-200 focus:border-sky-500 focus:outline-none text-sm font-bold text-slate-800 bg-white text-right mb-3">
 
                 <label for="student-madrasati-email" class="block text-xs font-extrabold text-indigo-900 mb-1">2. اكتب إيميلك في منصة مدرستي *</label>
-                <input type="email" id="student-madrasati-email" dir="ltr" oninput="handleEmailInputLookup()" onchange="handleEmailInputLookup()" placeholder="student@madrasati.sa" class="w-full p-3 rounded-xl border-2 border-indigo-200 focus:border-sky-500 focus:outline-none text-sm font-bold text-slate-800 bg-white text-left">
+                <input type="email" id="student-madrasati-email" dir="ltr" oninput="handleEmailInputLookup()" onchange="handleEmailInputLookup()" placeholder="s*******@rb.moe.gov.sa" class="w-full p-3 rounded-xl border-2 border-indigo-200 focus:border-sky-500 focus:outline-none text-sm font-bold text-slate-800 bg-white text-left">
 
                 <div id="matched-student-preview" class="mt-2.5 hidden p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-right text-xs">
                     <div class="font-extrabold text-emerald-900">✓ تم التحقق بنجاح: <span id="matched-student-name">—</span></div>
@@ -1273,23 +1273,16 @@
 
         function loadStudentInfo() {
             try {
-                const saved = localStorage.getItem('arabic_grammar_student_info_v1');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    studentInfo = {
-                        fullName: parsed.fullName || "",
-                        className: parsed.className || "",
-                        madrasatiEmail: parsed.madrasatiEmail || ""
-                    };
-                }
+                localStorage.removeItem('arabic_grammar_student_info_v1');
             } catch (_) {}
+            studentInfo = { fullName: "", className: "", madrasatiEmail: "" };
 
             const nameEl = document.getElementById('student-full-name');
             const classEl = document.getElementById('student-class');
             const emailEl = document.getElementById('student-madrasati-email');
-            if (nameEl) nameEl.value = studentInfo.fullName;
-            if (classEl) classEl.value = studentInfo.className;
-            if (emailEl) emailEl.value = studentInfo.madrasatiEmail;
+            if (nameEl) nameEl.value = "";
+            if (classEl) classEl.value = "";
+            if (emailEl) emailEl.value = "";
             syncChallengerPreview();
         }
 
