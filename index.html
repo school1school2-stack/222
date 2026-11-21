@@ -1040,9 +1040,26 @@
                 active.dailyChallengeEnabled = isDailyChallengeEnabled;
             }
             localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
-            saveQuestionsToStorage();
             syncDailyChallengeUI();
+            updateQuestionCounters();
             refreshShareLinkUI();
+            saveQuestionsToStorage();
+        }
+
+        function updateDailyQuestionsCount(val) {
+            if (!isTeacherAuthenticated) return;
+            const parsed = parseInt(normalizeDigits(val), 10);
+            if (isNaN(parsed) || parsed < 1) return;
+            dailyChallengeQuestionCount = Math.min(parsed, 200);
+            const active = getActiveModel();
+            if (active) {
+                active.dailyChallengeCount = dailyChallengeQuestionCount;
+            }
+            localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
+            syncDailyChallengeUI();
+            updateQuestionCounters();
+            refreshShareLinkUI();
+            saveQuestionsToStorage();
         }
 
         function updateDailyQuestionsCount(val) {
@@ -2334,8 +2351,12 @@
             const cleanName = (remoteModel.name || lessonTitleText || 'نموذج التحدي').trim();
             const cleanQuestions = Array.isArray(remoteModel.questions) ? remoteModel.questions : [];
             const cleanTime = parseFloat(remoteModel.timeLimitMinutes) > 0 ? parseFloat(remoteModel.timeLimitMinutes) : selectedTimeLimitMinutes;
-            const cleanDailyEnabled = typeof remoteModel.dailyChallengeEnabled === 'boolean' ? remoteModel.dailyChallengeEnabled : isDailyChallengeEnabled;
-            const cleanDailyCount = Number(remoteModel.dailyChallengeCount) > 0 ? Number(remoteModel.dailyChallengeCount) : dailyChallengeQuestionCount;
+            const cleanDailyEnabled = isTeacherAuthenticated
+                ? Boolean(isDailyChallengeEnabled)
+                : (typeof remoteModel.dailyChallengeEnabled === 'boolean' ? remoteModel.dailyChallengeEnabled : isDailyChallengeEnabled);
+            const cleanDailyCount = isTeacherAuthenticated
+                ? (Number(dailyChallengeQuestionCount) > 0 ? Number(dailyChallengeQuestionCount) : 10)
+                : (Number(remoteModel.dailyChallengeCount) > 0 ? Number(remoteModel.dailyChallengeCount) : dailyChallengeQuestionCount);
 
             const existingIdx = quizModels.findIndex(m => String(m.id) === cleanId);
             const normalizedModel = {
