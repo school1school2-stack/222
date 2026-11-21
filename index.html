@@ -133,7 +133,7 @@
     <div id="teacher-login-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-indigo-100 text-right">
             <h3 class="text-lg font-black text-indigo-900 mb-1">بوابة المعلم المسؤول</h3>
-            <p class="text-xs text-slate-500 mb-4">أدخل إيميل المعلم المعتمد أو الرقم السري لإدارة الأسئلة والنماذج وتعديل العنوان.</p>
+            <p class="text-xs text-slate-500 mb-4">أدخل إيميل المعلم المعتمد أو الرقم السري لإدارة الأسئلة والنماذج وتحديد الوقت.</p>
             <input type="text" id="teacher-pass-input" onkeydown="if(event.key === 'Enter') verifyTeacherPassword()" placeholder="إيميل المعلم أو الرقم السري" class="w-full p-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none text-sm font-bold text-slate-800 mb-2">
             <div id="teacher-pass-error" class="hidden text-xs font-bold text-rose-600 mb-3">إيميل المعلم أو الرقم السري غير صحيح</div>
             <div class="flex items-center justify-end gap-2 mt-2">
@@ -146,7 +146,7 @@
     <!-- Main Container -->
     <main class="max-w-3xl w-full mx-auto p-4 my-auto flex-grow flex flex-col justify-center">
 
-        <!-- SCREEN 1: START & MODE SELECTION -->
+        <!-- SCREEN 1: START -->
         <div id="start-screen" class="bg-white/95 backdrop-blur rounded-3xl p-6 sm:p-8 shadow-xl border border-sky-100 text-center transition-all">
             <div class="inline-flex items-center justify-center p-3 bg-sky-100 text-sky-600 rounded-2xl mb-4">
                 <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,34 +156,20 @@
             
             <h2 id="hero-title" class="text-2xl sm:text-3xl font-black text-slate-800 mb-2">اختبر مهاراتك في إعراب الفعل المضارع</h2>
             <p class="text-slate-600 max-w-lg mx-auto text-sm sm:text-base mb-6 leading-relaxed">
-                اختبر معرفتك بحالات رفع، نصب، وجزم الفعل المضارع، والأفعال الخمسة وعلامات الإعراب الأصلية والفرعية. اختر وقت التحدي وابدأ الآن!
+                اختبر معرفتك بحالات رفع، نصب، وجزم الفعل المضارع، والأفعال الخمسة وعلامات الإعراب الأصلية والفرعية. أدخل إيميلك وابدأ التحدي الآن!
             </p>
 
-            <!-- Mode Selection Cards -->
-            <div class="mb-6">
-                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">اختر زمن التحدي بالدقائق أو أدخل الوقت الذي تحتاجه</label>
-                <div class="grid grid-cols-3 gap-3 max-w-md mx-auto mb-3">
-                    <button type="button" onclick="selectTimeMode(1)" id="mode-1" class="time-mode-btn active transition-all p-3.5 rounded-2xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-1 shadow-sm hover:border-sky-500">
-                        <span class="text-2xl font-black">1</span>
-                        <span class="text-xs text-sky-600 font-medium">دقيقة واحدة</span>
-                    </button>
-                    <button type="button" onclick="selectTimeMode(2)" id="mode-2" class="time-mode-btn transition-all p-3.5 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-1 shadow-sm hover:border-sky-300">
-                        <span class="text-2xl font-black">2</span>
-                        <span class="text-xs text-slate-500 font-medium">دقيقتان</span>
-                    </button>
-                    <button type="button" onclick="selectTimeMode(3)" id="mode-3" class="time-mode-btn transition-all p-3.5 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-1 shadow-sm hover:border-sky-300">
-                        <span class="text-2xl font-black">3</span>
-                        <span class="text-xs text-slate-500 font-medium">3 دقائق</span>
-                    </button>
-                </div>
-                <!-- Custom Time Input -->
-                <div class="max-w-md mx-auto flex items-center justify-center gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-                    <label for="custom-time-input" class="text-xs font-bold text-slate-600">وقت مخصص بالدقائق:</label>
-                    <input type="number" id="custom-time-input" min="0.5" max="180" step="0.5" placeholder="مثلاً: 5" oninput="setCustomTime(this.value)" class="w-28 text-center py-1.5 px-3 rounded-xl border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-sm bg-white">
+            <!-- Read-only Challenge Duration Banner for Student -->
+            <div class="mb-6 max-w-md mx-auto">
+                <div class="flex items-center justify-center gap-2.5 bg-sky-50/90 border border-sky-200 px-4 py-3 rounded-2xl text-sky-900 shadow-xs">
+                    <svg class="w-5 h-5 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-xs sm:text-sm font-extrabold">زمن التحدي المحدد من المعلم: <span id="student-assigned-time-label" class="text-sky-700 font-black">دقيقة واحدة (1 دقيقة)</span></span>
                 </div>
             </div>
 
-            <!-- Student Info Inputs (إيميل الطالب فقط ليظهر اسمه وإيميله مباشرة) -->
+            <!-- Student Info Inputs -->
             <div class="mb-6 max-w-md mx-auto bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 sm:p-5 text-right">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <label for="student-madrasati-email" class="block text-xs font-extrabold text-indigo-900">اكتب إيميلك لبدء التحدي</label>
@@ -240,6 +226,32 @@
                     <select id="active-model-select" onchange="switchActiveModel(this.value)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none text-sm font-bold text-slate-800 bg-white">
                         <!-- Models populated dynamically -->
                     </select>
+                </div>
+
+                <!-- Teacher Time Control for Active Model -->
+                <div class="mb-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                        <label class="text-xs font-extrabold text-amber-900">⏱️ تحديد زمن التحدي لهذا النموذج (للمعلم فقط):</label>
+                        <span id="teacher-current-time-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">دقيقة واحدة (1 دقيقة)</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-2.5">
+                        <button type="button" onclick="selectTimeMode(1)" id="mode-1" class="time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500">
+                            <span class="text-lg font-black">1</span>
+                            <span class="text-[11px] text-sky-600 font-medium">دقيقة واحدة</span>
+                        </button>
+                        <button type="button" onclick="selectTimeMode(2)" id="mode-2" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
+                            <span class="text-lg font-black">2</span>
+                            <span class="text-[11px] text-slate-500 font-medium">دقيقتان</span>
+                        </button>
+                        <button type="button" onclick="selectTimeMode(3)" id="mode-3" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
+                            <span class="text-lg font-black">3</span>
+                            <span class="text-[11px] text-slate-500 font-medium">3 دقائق</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200">
+                        <label for="custom-time-input" class="text-xs font-bold text-slate-600">أو أدخل وقتاً مخصصاً بالدقائق:</label>
+                        <input type="number" id="custom-time-input" min="0.5" max="180" step="0.5" placeholder="مثلاً: 5" oninput="setCustomTime(this.value)" class="w-28 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
+                    </div>
                 </div>
 
                 <!-- Share Link Box for Active Model -->
@@ -340,7 +352,7 @@
                     <span class="text-[11px] font-bold text-indigo-600 bg-indigo-100 px-2.5 py-0.5 rounded-full">يدعم الاختيار، صح وخطأ، والمزاوجة</span>
                 </div>
                 <p class="text-xs text-slate-600 mb-3 leading-relaxed">
-                    الصق هنا مصفوفة الأسئلة (مثل <code class="bg-white px-1.5 py-0.5 rounded border text-indigo-700">[ { "t": "...", "q": "...", "ans": "...", "opts": [...] } ]</code> أو الكود الكامل) ثم اضغط على زر التوزيع لتُضاف أسئلتها فوراً إلى اللعبة.
+                    الصق هنا مصفوفة الأسئلة (مثل <code class="bg-white px-1.5 py-0.5 rounded border text-indigo-700">const rawQuizData = [ ... ]</code>) ثم اضغط على زر التوزيع لتُضاف أسئلتها فوراً إلى النموذج.
                 </p>
                 <textarea id="bulk-array-input" rows="5" placeholder='الصق مصفوفة الأسئلة هنا...' class="w-full p-3 rounded-xl border border-indigo-200 focus:border-indigo-500 focus:outline-none text-xs font-mono bg-white text-slate-800 mb-3" dir="ltr"></textarea>
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -534,6 +546,70 @@
             }
         }
 
+        function formatMinutesArabic(minutes) {
+            const m = parseFloat(minutes) || 1;
+            if (m === 1) return "دقيقة واحدة (1 دقيقة)";
+            if (m === 2) return "دقيقتان (2 دقيقة)";
+            if (m >= 3 && m <= 10) return `${m} دقائق`;
+            return `${m} دقيقة`;
+        }
+
+        function syncTimeDisplayUI() {
+            const labelText = formatMinutesArabic(selectedTimeLimitMinutes);
+            const studentBadge = document.getElementById('student-assigned-time-label');
+            const teacherBadge = document.getElementById('teacher-current-time-badge');
+            const customInput = document.getElementById('custom-time-input');
+
+            if (studentBadge) studentBadge.textContent = labelText;
+            if (teacherBadge) teacherBadge.textContent = labelText;
+
+            document.querySelectorAll('.time-mode-btn').forEach(btn => {
+                btn.className = "time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300";
+                const subText = btn.querySelector('span:last-child');
+                if (subText) subText.className = "text-[11px] text-slate-500 font-medium";
+            });
+
+            if (selectedTimeLimitMinutes === 1 || selectedTimeLimitMinutes === 2 || selectedTimeLimitMinutes === 3) {
+                const activeBtn = document.getElementById(`mode-${selectedTimeLimitMinutes}`);
+                if (activeBtn) {
+                    activeBtn.className = "time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500";
+                    const subText = activeBtn.querySelector('span:last-child');
+                    if (subText) subText.className = "text-[11px] text-sky-600 font-medium";
+                }
+                if (customInput) customInput.value = '';
+            } else if (customInput) {
+                customInput.value = String(selectedTimeLimitMinutes);
+            }
+        }
+
+        function applyTeacherTimeLimit(minutes, persist = true) {
+            const parsed = parseFloat(minutes);
+            if (isNaN(parsed) || parsed <= 0) return;
+            selectedTimeLimitMinutes = parsed;
+            const active = getActiveModel();
+            if (active) {
+                active.timeLimitMinutes = parsed;
+            }
+            localStorage.setItem('arabic_grammar_time_limit_v1', String(parsed));
+            syncTimeDisplayUI();
+            if (persist) {
+                saveQuestionsToStorage();
+            }
+        }
+
+        function selectTimeMode(minutes) {
+            if (!isTeacherAuthenticated) return;
+            applyTeacherTimeLimit(minutes, true);
+        }
+
+        function setCustomTime(val) {
+            if (!isTeacherAuthenticated) return;
+            const parsed = parseFloat(val);
+            if (!isNaN(parsed) && parsed > 0) {
+                applyTeacherTimeLimit(parsed, true);
+            }
+        }
+
         function markAttemptCompletedLocally(email, modelName) {
             const cleanEmail = (email || '').trim().toLowerCase();
             const cleanModel = (modelName || lessonTitleText || '').trim();
@@ -576,7 +652,6 @@
             const cleanEmail = (email || '').trim().toLowerCase();
             const cleanModel = (modelName || lessonTitleText || '').trim();
             if (!cleanEmail) return false;
-            // إذا تم حذف الطالب من قائمة المسموح لهم بالسحابة، لا يُمنع من الاختبار
             if (!isStudentInAllowedList(cleanEmail)) {
                 return false;
             }
@@ -613,7 +688,6 @@
                 const qText = (item.q || item.question || `سؤال ${idx + 1}`).toString().trim();
                 const qType = (item.t || item.category || "مصفوفة الأسئلة").toString().trim();
 
-                // معالجة أسئلة المزاوجة (التوصيل) التي تحتوي على opts و rightOpts وترتيب ans مثل "4 2 1 3"
                 if (Array.isArray(item.rightOpts) && Array.isArray(item.opts)) {
                     const ansTokens = (item.ans || "")
                         .toString()
@@ -660,7 +734,6 @@
                     };
                 }
 
-                // معالجة أسئلة الاختيار من متعدد وصح وخطأ
                 const opts = Array.isArray(item.opts) && item.opts.length > 0
                     ? item.opts.map(o => (o ?? "").toString())
                     : [item.ans || "صحيح", "خطأ"];
@@ -694,9 +767,11 @@
             const qCount = active && Array.isArray(active.questions) ? active.questions.length : 0;
 
             if (headerTitle) headerTitle.textContent = clean;
-            if (subtitleEl) subtitleEl.textContent = `${clean} (${qCount} سؤال) • رفع، نصب، جزم، والأفعال الخمسة`;
+            if (subtitleEl) subtitleEl.textContent = `${clean} (${qCount} سؤال) • زمن التحدي: ${formatMinutesArabic(selectedTimeLimitMinutes)}`;
             if (footerTitle) footerTitle.textContent = `${clean} • تطبيق تعليمي تفاعلي لقواعد اللغة العربية`;
             document.title = `${clean} - لعبة تعليمية تفاعلية`;
+            const totalQBadge = document.getElementById('total-q-num');
+            if (totalQBadge && qCount > 0) totalQBadge.textContent = qCount;
         }
 
         function cycleQuickModelFromHeader() {
@@ -724,13 +799,15 @@
             } catch (_) {
                 urlObj = new URL('https://aztlg-494c3.web.app/index.html');
             }
-            // إزالة أي هاش أو معاملات قديمة ثم ضبط معرف النموذج وعنوانه وعدد أسئلته بشكل نظيف
+
             urlObj.hash = '';
             urlObj.search = '';
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
             const qCount = Array.isArray(targetModel.questions) ? targetModel.questions.length : 0;
             urlObj.searchParams.set('qcount', String(qCount));
+            const modelTime = parseFloat(targetModel.timeLimitMinutes) || selectedTimeLimitMinutes || 1;
+            urlObj.searchParams.set('time', String(modelTime));
             return urlObj.toString();
         }
 
@@ -738,24 +815,6 @@
             const shareInput = document.getElementById('active-model-share-link');
             if (!shareInput) return;
             shareInput.value = buildModelShareUrl(getActiveModel());
-        }
-
-        function applyLessonTitle(newTitle) {
-            const clean = (newTitle || '').trim();
-            if (!clean) return;
-            lessonTitleText = clean;
-            const headerTitle = document.getElementById('lesson-title');
-            const subtitleEl = document.getElementById('lesson-subtitle');
-            const footerTitle = document.getElementById('footer-title');
-            const active = getActiveModel();
-            const qCount = active && Array.isArray(active.questions) ? active.questions.length : 0;
-
-            if (headerTitle) headerTitle.textContent = clean;
-            if (subtitleEl) subtitleEl.textContent = `${clean} (${qCount} سؤال) • رفع، نصب، جزم، والأفعال الخمسة`;
-            if (footerTitle) footerTitle.textContent = `${clean} • تطبيق تعليمي تفاعلي لقواعد اللغة العربية`;
-            document.title = `${clean} - لعبة تعليمية تفاعلية`;
-            const totalQBadge = document.getElementById('total-q-num');
-            if (totalQBadge && qCount > 0) totalQBadge.textContent = qCount;
         }
 
         function copyActiveModelShareLink() {
@@ -1301,34 +1360,6 @@
             }
         }
 
-        function selectTimeMode(minutes) {
-            selectedTimeLimitMinutes = minutes;
-            document.getElementById('custom-time-input').value = '';
-            document.querySelectorAll('.time-mode-btn').forEach(btn => {
-                btn.className = "time-mode-btn transition-all p-3.5 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-1 shadow-sm hover:border-sky-300";
-                const subText = btn.querySelector('span:last-child');
-                if (subText) subText.className = "text-xs text-slate-500 font-medium";
-            });
-            const activeBtn = document.getElementById(`mode-${minutes}`);
-            if (activeBtn) {
-                activeBtn.className = "time-mode-btn active transition-all p-3.5 rounded-2xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-1 shadow-sm hover:border-sky-500";
-                const subText = activeBtn.querySelector('span:last-child');
-                if (subText) subText.className = "text-xs text-sky-600 font-medium";
-            }
-        }
-
-        function setCustomTime(val) {
-            const parsed = parseFloat(val);
-            if (!isNaN(parsed) && parsed > 0) {
-                selectedTimeLimitMinutes = parsed;
-                document.querySelectorAll('.time-mode-btn').forEach(btn => {
-                    btn.className = "time-mode-btn transition-all p-3.5 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-1 shadow-sm hover:border-sky-300";
-                    const subText = btn.querySelector('span:last-child');
-                    if (subText) subText.className = "text-xs text-slate-500 font-medium";
-                });
-            }
-        }
-
         const defaultQuestionBank = [
             {
                 id: 1,
@@ -1536,6 +1567,7 @@
                 quizModels = [{
                     id: 'model_default_1',
                     name: 'النموذج الأول (الأساسي)',
+                    timeLimitMinutes: 1,
                     questions: [...defaultQuestionBank]
                 }];
                 activeModelId = quizModels[0].id;
@@ -1551,8 +1583,17 @@
         function syncQuestionBankWithActiveModel() {
             const active = getActiveModel();
             questionBank = Array.isArray(active.questions) ? active.questions : [];
+            if (active && active.name) {
+                applyLessonTitle(active.name);
+                localStorage.setItem('arabic_grammar_lesson_title', active.name);
+            }
+            const savedGlobalTime = parseFloat(localStorage.getItem('arabic_grammar_time_limit_v1'));
+            const resolvedTime = parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : 1);
+            selectedTimeLimitMinutes = resolvedTime;
+            syncTimeDisplayUI();
             updateQuestionCounters();
             renderModelsUI();
+            refreshShareLinkUI();
             evaluateAttemptLockState();
         }
 
@@ -1574,6 +1615,7 @@
             const newModel = {
                 id: `model_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 name: modelName,
+                timeLimitMinutes: selectedTimeLimitMinutes || 1,
                 questions: Array.isArray(customQuestions) ? customQuestions : []
             };
             quizModels.push(newModel);
@@ -1662,7 +1704,6 @@
 
         function renderModelsUI() {
             const selectEl = document.getElementById('active-model-select');
-            const badgeEl = document.getElementById('active-model-q-badge');
             const countBadge = document.getElementById('models-count-badge');
             const listContainer = document.getElementById('models-list-container');
             const active = getActiveModel();
@@ -1673,10 +1714,6 @@
                 selectEl.innerHTML = quizModels.map(m =>
                     `<option value="${m.id}" ${m.id.toString() === active.id.toString() ? 'selected' : ''}>${m.name} (${(m.questions || []).length} سؤال)</option>`
                 ).join('');
-            }
-
-            if (badgeEl) {
-                badgeEl.textContent = `${(active.questions || []).length} سؤال`;
             }
 
             if (listContainer) {
@@ -1758,6 +1795,7 @@
                     quizModels = [{
                         id: 'model_default_1',
                         name: 'النموذج الأول (الأساسي)',
+                        timeLimitMinutes: 1,
                         questions: initialQuestions
                     }];
                     activeModelId = quizModels[0].id;
@@ -1767,6 +1805,7 @@
                 quizModels = [{
                     id: 'model_default_1',
                     name: 'النموذج الأول (الأساسي)',
+                    timeLimitMinutes: 1,
                     questions: [...defaultQuestionBank]
                 }];
                 activeModelId = quizModels[0].id;
@@ -1777,11 +1816,13 @@
         function saveQuestionsToStorage() {
             const active = getActiveModel();
             active.questions = questionBank;
+            active.timeLimitMinutes = selectedTimeLimitMinutes || active.timeLimitMinutes || 1;
             localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
             localStorage.setItem('arabic_grammar_active_model_id_v3', active.id.toString());
             localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
             updateQuestionCounters();
             renderModelsUI();
+            refreshShareLinkUI();
         }
 
         function updateQuestionCounters() {
@@ -1806,16 +1847,11 @@
             refreshShareLinkUI();
         }
 
-        function syncQuestionBankWithActiveModel() {
-            const active = getActiveModel();
-            questionBank = Array.isArray(active.questions) ? active.questions : [];
-            if (active && active.name) {
-                applyLessonTitle(active.name);
-                localStorage.setItem('arabic_grammar_lesson_title', active.name);
-            }
+        function closeQuestionManager() {
+            cancelEditMode();
+            document.getElementById('manage-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
             updateQuestionCounters();
-            renderModelsUI();
-            refreshShareLinkUI();
             evaluateAttemptLockState();
         }
 
@@ -1830,17 +1866,6 @@
             if (cancelBtn) cancelBtn.classList.add('hidden');
             const submitBtn = document.getElementById('submit-q-btn');
             if (submitBtn) submitBtn.textContent = 'حفظ السؤال';
-        }
-
-        function saveQuestionsToStorage() {
-            const active = getActiveModel();
-            active.questions = questionBank;
-            localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
-            localStorage.setItem('arabic_grammar_active_model_id_v3', active.id.toString());
-            localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
-            updateQuestionCounters();
-            renderModelsUI();
-            refreshShareLinkUI();
         }
 
         function editQuestionById(qId) {
@@ -1965,7 +1990,6 @@
             let rawText = textarea.value.trim();
             if (!rawText) return;
 
-            // إزالة تعريف المصفوفة مثل: const rawQuizData = ... أو let ... أو var ... والفاصلة المنقوطة الختامية
             rawText = rawText
                 .replace(/^\s*(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*/i, '')
                 .replace(/;\s*$/, '')
@@ -2051,7 +2075,9 @@
 
         function buildShuffledQueue() {
             const active = getActiveModel();
-            const pool = active && Array.isArray(active.questions) ? active.questions : questionBank;
+            const pool = active && Array.isArray(active.questions) && active.questions.length > 0
+                ? active.questions
+                : (questionBank.length > 0 ? questionBank : defaultQuestionBank);
             totalModelQuestionsCount = pool.length;
             const shuffled = [...pool].sort(() => Math.random() - 0.5);
             return shuffled.map(q => {
@@ -2382,6 +2408,7 @@
             let sharedModelId = null;
             let sharedTitle = null;
             let sharedQCount = null;
+            let sharedTimeLimit = null;
 
             try {
                 const currentHref = window.location.href || '';
@@ -2393,6 +2420,10 @@
                     const rawQCount = parsedUrl.searchParams.get('qcount');
                     if (rawQCount !== null && !isNaN(parseInt(rawQCount, 10))) {
                         sharedQCount = parseInt(rawQCount, 10);
+                    }
+                    const rawTime = parsedUrl.searchParams.get('time');
+                    if (rawTime !== null && !isNaN(parseFloat(rawTime)) && parseFloat(rawTime) > 0) {
+                        sharedTimeLimit = parseFloat(rawTime);
                     }
                 }
             } catch (_) {}
@@ -2406,6 +2437,10 @@
                 activeModelId = sharedModelId;
                 localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
                 syncQuestionBankWithActiveModel();
+            }
+
+            if (sharedTimeLimit !== null) {
+                applyTeacherTimeLimit(sharedTimeLimit, true);
             }
 
             if (sharedTitle && sharedTitle.trim()) {
@@ -2432,6 +2467,7 @@
                 }
             }
 
+            syncTimeDisplayUI();
             refreshShareLinkUI();
             initCloudStudentsSync();
         };
