@@ -194,7 +194,15 @@
             </p>
 
             <!-- Read-only Challenge Duration Banner for Student -->
-            <div class="mb-6 max-w-md mx-auto">
+            <div class="mb-6 max-w-md mx-auto space-y-2">
+                <div id="daily-challenge-banner" class="hidden flex-col sm:flex-row items-center justify-between gap-2 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border border-amber-300 px-4 py-2.5 rounded-2xl text-amber-950 shadow-xs text-xs">
+                    <span class="font-black flex items-center gap-1.5">
+                        <span>🌟</span>
+                        <span>تحدي اليوم</span>
+                    </span>
+                    <span id="daily-challenge-date-label" class="font-extrabold text-amber-800 bg-white/80 px-2.5 py-0.5 rounded-lg border border-amber-200">—</span>
+                    <span id="daily-challenge-qcount-label" class="font-bold text-amber-900">10 أسئلة</span>
+                </div>
                 <div class="flex items-center justify-center gap-2.5 bg-sky-50/90 border border-sky-200 px-4 py-3 rounded-2xl text-sky-900 shadow-xs">
                     <svg class="w-5 h-5 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -228,7 +236,7 @@
                     عذراً، هذا الإيميل غير مسجل في قائمة الطلاب المعتمدة في السحابة ولا يُسمح له بالدخول.
                 </div>
                 <div id="already-completed-warning" class="mt-2.5 hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-right text-xs font-bold text-rose-700">
-                    لقد أنهيت هذا النموذج مسبقاً ولا يُسمح بإعادة المحاولة لنفس النموذج.
+                    لقد أنهيت تحدي اليوم مسبقاً ولا يُسمح بإعادة المحاولة إلا بعد مرور 24 ساعة.
                 </div>
                 <input type="hidden" id="student-class">
             </div>
@@ -296,6 +304,21 @@
                     <div class="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200">
                         <label for="custom-time-input" class="text-xs font-bold text-slate-600">أو أدخل وقتاً مخصصاً بالدقائق:</label>
                         <input type="text" inputmode="decimal" id="custom-time-input" placeholder="مثلاً: 10 أو 20 أو 30" oninput="setCustomTime(this.value)" onchange="setCustomTime(this.value)" class="w-32 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
+                    </div>
+                </div>
+
+                <!-- Daily Challenge Controller (Teacher Only) -->
+                <div class="mb-3 p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-black text-indigo-950">
+                            <input type="checkbox" id="daily-challenge-enabled-toggle" onchange="toggleDailyChallengeEnabled(this.checked)" class="w-4 h-4 rounded accent-indigo-600">
+                            <span>تفعيل وضع «تحدي اليوم» (محاولة واحدة كل 24 ساعة)</span>
+                        </label>
+                        <span id="daily-pool-stats-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">بنك الأسئلة: 0 سؤال</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-indigo-200">
+                        <label for="daily-questions-count-input" class="text-xs font-bold text-slate-700">عدد الأسئلة المختارة يومياً من البنك (مثلاً 5 أو 10 أو 15):</label>
+                        <input type="number" min="1" max="200" id="daily-questions-count-input" value="10" oninput="updateDailyQuestionsCount(this.value)" onchange="updateDailyQuestionsCount(this.value)" class="w-28 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-indigo-500 focus:outline-none font-black text-indigo-900 text-xs bg-slate-50">
                     </div>
                 </div>
 
@@ -584,6 +607,9 @@
         let isQuestionAnswered = false;
         let isGameEnding = false;
         let sessionCardThemeIndex = 0;
+        let isDailyChallengeEnabled = false;
+        let dailyChallengeQuestionCount = 10;
+        const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
         const LUXURY_BG_THEMES = [
             "bg-gradient-to-br from-sky-50 via-indigo-50 to-blue-100",
@@ -821,29 +847,30 @@
             const cleanEmail = (email || '').trim().toLowerCase();
             const cleanModel = (modelName || lessonTitleText || '').trim();
             if (!cleanEmail) return;
-            const localSet = getLocalCompletedSet();
-            localSet.add(`${cleanEmail}::${cleanModel}`);
-            localStorage.setItem('arabic_grammar_completed_attempts_v1', JSON.stringify(Array.from(localSet)));
-            completedCloudAttempts.add(`${cleanEmail}::${cleanModel}`);
+            const nowMs = Date.now();
+            const localMap = getLocalCompletedMap();
+            localMap[`${cleanEmail}::${cleanModel}`] = nowMs;
+            localStorage.setItem('arabic_grammar_completed_attempts_v1', JSON.stringify(localMap));
+            completedCloudTimestamps.set(`${cleanEmail}::${cleanModel}`, nowMs);
         }
 
         function clearAttemptLockForEmail(email, modelName = null) {
             const cleanEmail = (email || '').trim().toLowerCase();
             if (!cleanEmail) return;
-            const localSet = getLocalCompletedSet();
+            const localMap = getLocalCompletedMap();
             const prefix = `${cleanEmail}::`;
             const targetKey = modelName ? `${cleanEmail}::${(modelName || '').trim()}` : null;
 
-            Array.from(localSet).forEach((k) => {
+            Object.keys(localMap).forEach((k) => {
                 if (targetKey ? k === targetKey : k.startsWith(prefix)) {
-                    localSet.delete(k);
+                    delete localMap[k];
                 }
             });
-            localStorage.setItem('arabic_grammar_completed_attempts_v1', JSON.stringify(Array.from(localSet)));
+            localStorage.setItem('arabic_grammar_completed_attempts_v1', JSON.stringify(localMap));
 
-            Array.from(completedCloudAttempts).forEach((k) => {
+            Array.from(completedCloudTimestamps.keys()).forEach((k) => {
                 if (targetKey ? k === targetKey : k.startsWith(prefix)) {
-                    completedCloudAttempts.delete(k);
+                    completedCloudTimestamps.delete(k);
                 }
             });
         }
@@ -863,8 +890,13 @@
                 return false;
             }
             const key = `${cleanEmail}::${cleanModel}`;
-            const localSet = getLocalCompletedSet();
-            return completedCloudAttempts.has(key) || localSet.has(key);
+            const localMap = getLocalCompletedMap();
+            const lastAttemptMs = Math.max(
+                Number(completedCloudTimestamps.get(key) || 0),
+                Number(localMap[key] || 0)
+            );
+            if (!lastAttemptMs) return false;
+            return (Date.now() - lastAttemptMs) < TWENTY_FOUR_HOURS_MS;
         }
 
         async function refreshCloudCompletedAttemptsForEmail(email) {
@@ -882,62 +914,206 @@
                 snap.forEach((doc) => {
                     const d = doc.data() || {};
                     const mId = (d.model_id || lessonTitleText || '').toString().trim();
-                    completedCloudAttempts.add(`${cleanEmail}::${mId}`);
+                    let attemptMs = 0;
+                    if (d.time && typeof d.time.toMillis === 'function') {
+                        attemptMs = d.time.toMillis();
+                    } else if (typeof d.submitted_at_ms === 'number') {
+                        attemptMs = d.submitted_at_ms;
+                    } else {
+                        attemptMs = Date.now();
+                    }
+                    const key = `${cleanEmail}::${mId}`;
+                    const prevMs = Number(completedCloudTimestamps.get(key) || 0);
+                    if (attemptMs > prevMs) {
+                        completedCloudTimestamps.set(key, attemptMs);
+                    }
                 });
             } catch (err) {
                 console.warn("Could not check previous attempts:", err);
             }
         }
-
-        function distributeRawQuizData(rawList) {
-            if (!Array.isArray(rawList) || rawList.length === 0) return [];
-            return rawList.map((item, idx) => {
-                const qText = (item.q || item.question || `سؤال ${idx + 1}`).toString().trim();
-                const qType = (item.t || item.category || "مصفوفة الأسئلة").toString().trim();
-
-                if (Array.isArray(item.rightOpts) && Array.isArray(item.opts)) {
-                    const ansTokens = (item.ans || "")
-                        .toString()
-                        .trim()
-                        .split(/\s+/)
-                        .map(token => parseInt(token, 10) - 1)
-                        .filter(n => !isNaN(n) && n >= 0 && n < item.rightOpts.length);
-
-                    const pairsList = item.opts.map((leftItem, i) => {
-                        const matchedRightIdx = ansTokens[i] !== undefined ? ansTokens[i] : i;
-                        const matchedRightText = item.rightOpts[matchedRightIdx] || item.rightOpts[0] || "";
-                        return `${leftItem} ⇐ ${matchedRightText}`;
+        function getLocalCompletedMap() {
+            try {
+                const raw = localStorage.getItem('arabic_grammar_completed_attempts_v1');
+                if (!raw) return {};
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    const converted = {};
+                    parsed.forEach((k) => {
+                        if (typeof k === 'string') converted[k] = Date.now();
                     });
+                    return converted;
+                }
+                return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (_) {
+                return {};
+            }
+        }
 
-                    const correctSummary = pairsList.join(" | ");
-                    const wrongDistractor1 = item.opts.map((leftItem, i) => {
-                        const altIdx = (i + 1) % item.rightOpts.length;
-                        return `${leftItem} ⇐ ${item.rightOpts[altIdx] || ""}`;
-                    }).join(" | ");
-                    const wrongDistractor2 = item.opts.map((leftItem, i) => {
-                        const altIdx = (i + 2) % item.rightOpts.length;
-                        return `${leftItem} ⇐ ${item.rightOpts[altIdx] || ""}`;
-                    }).join(" | ");
-                    const wrongDistractor3 = item.opts.map((leftItem, i) => {
-                        const revIdx = Math.max(0, item.rightOpts.length - 1 - i);
-                        return `${leftItem} ⇐ ${item.rightOpts[revIdx] || ""}`;
-                    }).join(" | ");
+        const completedCloudTimestamps = new Map();
 
-                    const uniqueDistractors = Array.from(new Set([wrongDistractor1, wrongDistractor2, wrongDistractor3]))
-                        .filter(d => d && d !== correctSummary);
+        function getFormattedTodayDateArabic() {
+            try {
+                return new Date().toLocaleDateString('ar-SA-u-ca-gregory', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } catch (_) {
+                return new Date().toISOString().slice(0, 10);
+            }
+        }
 
-                    const combinedOptions = [correctSummary, ...uniqueDistractors].slice(0, 4);
-                    while (combinedOptions.length < 2) {
-                        combinedOptions.push("توصيل غير صحيح");
+        function getTodayDateKey() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function syncDailyChallengeUI() {
+            const active = getActiveModel();
+            const poolLen = active && Array.isArray(active.questions) ? active.questions.length : questionBank.length;
+            const effectiveDailyCount = isDailyChallengeEnabled
+                ? Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolLen)))
+                : poolLen;
+
+            const bannerEl = document.getElementById('daily-challenge-banner');
+            const dateLabelEl = document.getElementById('daily-challenge-date-label');
+            const qCountLabelEl = document.getElementById('daily-challenge-qcount-label');
+            const toggleEl = document.getElementById('daily-challenge-enabled-toggle');
+            const countInputEl = document.getElementById('daily-questions-count-input');
+            const poolStatsEl = document.getElementById('daily-pool-stats-badge');
+
+            if (bannerEl) {
+                bannerEl.classList.toggle('hidden', !isDailyChallengeEnabled);
+                bannerEl.classList.toggle('flex', isDailyChallengeEnabled);
+            }
+            if (dateLabelEl) {
+                dateLabelEl.textContent = getFormattedTodayDateArabic();
+            }
+            if (qCountLabelEl) {
+                qCountLabelEl.textContent = `${effectiveDailyCount} أسئلة لليوم`;
+            }
+            if (toggleEl) {
+                toggleEl.checked = Boolean(isDailyChallengeEnabled);
+            }
+            if (countInputEl) {
+                countInputEl.value = String(dailyChallengeQuestionCount || 10);
+            }
+            if (poolStatsEl) {
+                poolStatsEl.textContent = `بنك الأسئلة: ${poolLen} سؤال • المختار يومياً: ${effectiveDailyCount}`;
+            }
+
+            const heroSubtitleEl = document.getElementById('hero-subtitle');
+            const subtitleEl = document.getElementById('lesson-subtitle');
+            const totalQBadge = document.getElementById('total-q-num');
+            if (heroSubtitleEl) {
+                heroSubtitleEl.textContent = isDailyChallengeEnabled
+                    ? `تحدي اليوم (${getFormattedTodayDateArabic()}) • يضم ${effectiveDailyCount} سؤالاً مختاراً من أصل ${poolLen} سؤال في «${lessonTitleText}».`
+                    : `اختبر معرفتك ومهاراتك في «${lessonTitleText}» (${poolLen} سؤال) بدقة وسرعة. أدخل إيميلك وابدأ التحدي الآن!`;
+            }
+            if (subtitleEl) {
+                subtitleEl.textContent = isDailyChallengeEnabled
+                    ? `تحدي اليوم (${effectiveDailyCount}/${poolLen} سؤال) • زمن التحدي: ${formatMinutesArabic(selectedTimeLimitMinutes)}`
+                    : `${lessonTitleText} (${poolLen} سؤال) • زمن التحدي: ${formatMinutesArabic(selectedTimeLimitMinutes)}`;
+            }
+            if (totalQBadge && effectiveDailyCount > 0) {
+                totalQBadge.textContent = effectiveDailyCount;
+            }
+        }
+
+        function toggleDailyChallengeEnabled(enabled) {
+            if (!isTeacherAuthenticated) return;
+            isDailyChallengeEnabled = Boolean(enabled);
+            const active = getActiveModel();
+            if (active) {
+                active.dailyChallengeEnabled = isDailyChallengeEnabled;
+            }
+            localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+            saveQuestionsToStorage();
+            syncDailyChallengeUI();
+            refreshShareLinkUI();
+        }
+
+        function updateDailyQuestionsCount(val) {
+            if (!isTeacherAuthenticated) return;
+            const parsed = parseInt(normalizeDigits(val), 10);
+            if (isNaN(parsed) || parsed < 1) return;
+            dailyChallengeQuestionCount = Math.min(parsed, 200);
+            const active = getActiveModel();
+            if (active) {
+                active.dailyChallengeCount = dailyChallengeQuestionCount;
+            }
+            localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
+            saveQuestionsToStorage();
+            syncDailyChallengeUI();
+            refreshShareLinkUI();
+        }
+
+        function pickDailyQuestionsForToday(pool, requestedCount) {
+            if (!Array.isArray(pool) || pool.length === 0) return [];
+            const targetCount = Math.max(1, Math.min(Number(requestedCount) || 10, pool.length));
+            const dateKey = getTodayDateKey();
+            const active = getActiveModel();
+            const modelKey = active ? String(active.id) : lessonTitleText;
+            const storageKey = `arabic_grammar_daily_selection_${modelKey}_${dateKey}`;
+
+            try {
+                const savedIds = JSON.parse(localStorage.getItem(storageKey) || 'null');
+                if (Array.isArray(savedIds) && savedIds.length > 0) {
+                    const byId = new Map(pool.map(q => [String(q.id), q]));
+                    const restored = savedIds.map(id => byId.get(String(id))).filter(Boolean);
+                    if (restored.length === Math.min(targetCount, pool.length)) {
+                        return restored;
                     }
+                }
+            } catch (_) {}
 
+            const picked = shuffleArrayRandomly(pool).slice(0, targetCount);
+            try {
+                const picked = shuffleArrayRandomly(pool).slice(0, targetCount);
+                localStorage.setItem(storageKey, JSON.stringify(picked.map(q => q.id)));
+                return picked;
+            } catch (_) {
+                return shuffleArrayRandomly(pool).slice(0, targetCount);
+            }
+        }
+
+        function distributeRawQuizData(itemsArray) {
+            if (!Array.isArray(itemsArray) || itemsArray.length === 0) return [];
+            return itemsArray.map((item, idx) => {
+                if (!item || typeof item !== 'object') return null;
+
+                if (Array.isArray(item.options) && item.options.length > 0 && typeof item.question === 'string') {
+                    const correctIdx = typeof item.correct === 'number' ? item.correct : 0;
+                    return {
+                        id: item.id || `imp_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
+                        category: item.category || item.type || "أسئلة مستوردة",
+                        question: item.question,
+                        options: item.options.map(o => String(o)),
+                        correct: Math.max(0, Math.min(correctIdx, item.options.length - 1)),
+                        explanation: item.explanation || `الإجابة الصحيحة هي: ${item.options[correctIdx] || item.options[0]}`
+                    };
+                }
+
+                const qText = (item.q || item.question || item.text || `سؤال ${idx + 1}`).toString();
+                const qType = (item.type || item.category || "اختيار من متعدد").toString();
+
+                if (Array.isArray(item.pairs) && item.pairs.length > 0) {
+                    const correctPairs = item.pairs.map(p => `${p.left || p[0]} ← ${p.right || p[1]}`);
+                    const distractors = Array.isArray(item.opts) ? item.opts.filter(o => !correctPairs.includes(o)) : [];
+                    const combinedOptions = shuffleArrayRandomly([correctPairs[0], ...distractors.slice(0, 3)]);
+                    const foundCorrect = combinedOptions.findIndex(o => o === correctPairs[0]);
                     return {
                         id: `raw_match_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
                         category: qType,
-                        question: `${qText} (${item.opts.join(" - ")})`,
-                        options: combinedOptions,
-                        correct: 0,
-                        explanation: item.explanation || `التوصيل الصحيح: ${correctSummary}`
+                        question: qText,
+                        options: combinedOptions.length > 0 ? combinedOptions : correctPairs,
+                        correct: foundCorrect >= 0 ? foundCorrect : 0,
+                        explanation: item.explanation || `المطابقة الصحيحة: ${correctPairs.join(" | ")}`
                     };
                 }
 
@@ -960,7 +1136,7 @@
                     correct: correctIdx,
                     explanation: item.explanation || `الإجابة الصحيحة هي: ${opts[correctIdx]}`
                 };
-            });
+            }).filter(Boolean);
         }
 
         function applyLessonTitle(newTitle) {
@@ -1876,7 +2052,16 @@
             const savedGlobalTime = parseFloat(localStorage.getItem('arabic_grammar_time_limit_v1'));
             const resolvedTime = parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : 1);
             selectedTimeLimitMinutes = resolvedTime;
+
+            if (active && typeof active.dailyChallengeEnabled === 'boolean') {
+                isDailyChallengeEnabled = active.dailyChallengeEnabled;
+            }
+            if (active && Number(active.dailyChallengeCount) > 0) {
+                dailyChallengeQuestionCount = Number(active.dailyChallengeCount);
+            }
+
             syncTimeDisplayUI();
+            syncDailyChallengeUI();
             updateQuestionCounters();
             renderModelsUI();
             refreshShareLinkUI();
@@ -2371,8 +2556,13 @@
             const pool = active && Array.isArray(active.questions) && active.questions.length > 0
                 ? active.questions
                 : (questionBank.length > 0 ? questionBank : defaultQuestionBank);
-            totalModelQuestionsCount = pool.length;
-            const shuffledQuestions = shuffleArrayRandomly(pool);
+
+            const selectedPool = isDailyChallengeEnabled
+                ? pickDailyQuestionsForToday(pool, dailyChallengeQuestionCount)
+                : pool;
+
+            totalModelQuestionsCount = selectedPool.length;
+            const shuffledQuestions = shuffleArrayRandomly(selectedPool);
             return shuffledQuestions.map(q => {
                 const originalOptions = Array.isArray(q.options) ? q.options : [];
                 const indexedOptions = originalOptions.map((text, idx) => ({
@@ -2737,6 +2927,8 @@
             let sharedTitle = null;
             let sharedQCount = null;
             let sharedTimeLimit = null;
+            let sharedDailyFlag = null;
+            let sharedDailyCount = null;
 
             try {
                 const currentHref = window.location.href || '';
@@ -2757,8 +2949,25 @@
                     if (rawTime !== null && !isNaN(parseFloat(rawTime)) && parseFloat(rawTime) > 0) {
                         sharedTimeLimit = parseFloat(rawTime);
                     }
+                    const rawDaily = parsedUrl.searchParams.get('daily');
+                    if (rawDaily === '1' || rawDaily === '0') {
+                        sharedDailyFlag = rawDaily === '1';
+                    }
+                    const rawDailyCount = parsedUrl.searchParams.get('daily_count');
+                    if (rawDailyCount !== null && !isNaN(parseInt(rawDailyCount, 10)) && parseInt(rawDailyCount, 10) > 0) {
+                        sharedDailyCount = parseInt(rawDailyCount, 10);
+                    }
                 }
             } catch (_) {}
+
+            const savedDailyEnabled = localStorage.getItem('arabic_grammar_daily_enabled_v1');
+            if (savedDailyEnabled !== null) {
+                isDailyChallengeEnabled = savedDailyEnabled === '1';
+            }
+            const savedDailyCount = parseInt(localStorage.getItem('arabic_grammar_daily_count_v1') || '', 10);
+            if (!isNaN(savedDailyCount) && savedDailyCount > 0) {
+                dailyChallengeQuestionCount = savedDailyCount;
+            }
 
             updateTeacherRoleUI();
             loadStudentInfo();
@@ -2773,6 +2982,15 @@
 
             if (sharedTimeLimit !== null) {
                 applyTeacherTimeLimit(sharedTimeLimit, true);
+            }
+
+            if (sharedDailyFlag !== null) {
+                isDailyChallengeEnabled = sharedDailyFlag;
+                localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+            }
+            if (sharedDailyCount !== null) {
+                dailyChallengeQuestionCount = sharedDailyCount;
+                localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
             }
 
             if (sharedTitle && sharedTitle.trim()) {
@@ -2800,6 +3018,7 @@
             }
 
             syncTimeDisplayUI();
+            syncDailyChallengeUI();
             initSessionCardTheme();
             refreshShareLinkUI();
             initCloudStudentsSync();
