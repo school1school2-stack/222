@@ -979,6 +979,7 @@
             const effectiveDailyCount = isDailyChallengeEnabled
                 ? Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolLen)))
                 : poolLen;
+            const activeChallengeCount = isDailyChallengeEnabled ? effectiveDailyCount : poolLen;
 
             const bannerEl = document.getElementById('daily-challenge-banner');
             const dateLabelEl = document.getElementById('daily-challenge-date-label');
@@ -1007,12 +1008,17 @@
                 poolStatsEl.textContent = `بنك الأسئلة: ${poolLen} سؤال • المختار يومياً: ${effectiveDailyCount}`;
             }
 
+            const totalQuestionsBadgeEl = document.getElementById('total-questions-count');
+            if (totalQuestionsBadgeEl) {
+                totalQuestionsBadgeEl.textContent = activeChallengeCount;
+            }
+
             const heroSubtitleEl = document.getElementById('hero-subtitle');
             const subtitleEl = document.getElementById('lesson-subtitle');
             const totalQBadge = document.getElementById('total-q-num');
             if (heroSubtitleEl) {
                 heroSubtitleEl.textContent = isDailyChallengeEnabled
-                    ? `تحدي اليوم (${getFormattedTodayDateArabic()}) • يضم ${effectiveDailyCount} سؤالاً مختاراً من أصل ${poolLen} سؤال في «${lessonTitleText}».`
+                    ? `تحدي اليوم (${getFormattedTodayDateArabic()}) • يضم ${effectiveDailyCount} أسئلة مختارة من أصل ${poolLen} سؤال في «${lessonTitleText}».`
                     : `اختبر معرفتك ومهاراتك في «${lessonTitleText}» (${poolLen} سؤال) بدقة وسرعة. أدخل إيميلك وابدأ التحدي الآن!`;
             }
             if (subtitleEl) {
@@ -1020,8 +1026,8 @@
                     ? `تحدي اليوم (${effectiveDailyCount}/${poolLen} سؤال) • زمن التحدي: ${formatMinutesArabic(selectedTimeLimitMinutes)}`
                     : `${lessonTitleText} (${poolLen} سؤال) • زمن التحدي: ${formatMinutesArabic(selectedTimeLimitMinutes)}`;
             }
-            if (totalQBadge && effectiveDailyCount > 0) {
-                totalQBadge.textContent = effectiveDailyCount;
+            if (totalQBadge && activeChallengeCount > 0) {
+                totalQBadge.textContent = activeChallengeCount;
             }
         }
 
@@ -1059,16 +1065,26 @@
             const dateKey = getTodayDateKey();
             const active = getActiveModel();
             const modelKey = active ? String(active.id) : lessonTitleText;
-            const storageKey = `arabic_grammar_daily_selection_${modelKey}_${dateKey}`;
+            const storageKey = `arabic_grammar_daily_selection_${modelKey}_${dateKey}_${targetCount}`;
 
             try {
                 const savedIds = JSON.parse(localStorage.getItem(storageKey) || 'null');
                 if (Array.isArray(savedIds) && savedIds.length > 0) {
-                    const byId = new Map(pool.map(q => [String(q.id), q]));
+                    const byId = new Map(pool.map((q, idx) => [String(q && q.id !== undefined ? q.id : idx), q]));
                     const restored = savedIds.map(id => byId.get(String(id))).filter(Boolean);
-                    if (restored.length === Math.min(targetCount, pool.length)) {
-                        return restored;
+                    if (restored.length === targetCount) {
+                        return restored.slice(0, targetCount);
                     }
+                }
+            } catch (_) {}
+
+            const picked = shuffleArrayRandomly(pool).slice(0, targetCount);
+            try {
+                const idsToSave = picked.map((q, idx) => String(q && q.id !== undefined ? q.id : idx));
+                localStorage.setItem(storageKey, JSON.stringify(idsToSave));
+            } catch (_) {}
+            return picked.slice(0, targetCount);
+        }
                 }
             } catch (_) {}
 
@@ -1193,8 +1209,13 @@
             urlObj.searchParams.set('student', '1');
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
-            const qCount = Array.isArray(targetModel.questions) ? targetModel.questions.length : 0;
+            const poolArr = Array.isArray(targetModel.questions) ? targetModel.questions : [];
+            const qCount = isDailyChallengeEnabled
+                ? Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolArr.length)))
+                : poolArr.length;
             urlObj.searchParams.set('qcount', String(qCount));
+            urlObj.searchParams.set('daily', isDailyChallengeEnabled ? '1' : '0');
+            urlObj.searchParams.set('daily_count', String(Number(dailyChallengeQuestionCount) || 10));
             const modelTime = parseFloat(targetModel.timeLimitMinutes) || selectedTimeLimitMinutes || 1;
             urlObj.searchParams.set('time', String(modelTime));
             return urlObj.toString();
@@ -2297,10 +2318,14 @@
         }
 
         function updateQuestionCounters() {
+            const poolLen = questionBank.length;
+            const activeCount = isDailyChallengeEnabled
+                ? Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolLen)))
+                : poolLen;
             const totalEl = document.getElementById('total-questions-count');
             const manageEl = document.getElementById('manage-q-count');
-            if (totalEl) totalEl.textContent = questionBank.length;
-            if (manageEl) manageEl.textContent = questionBank.length;
+            if (totalEl) totalEl.textContent = activeCount;
+            if (manageEl) manageEl.textContent = poolLen;
         }
 
         function openQuestionManager() {
@@ -3008,7 +3033,7 @@
             }
 
             const activeAfterLoad = getActiveModel();
-            if (sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
+            if (!isDailyChallengeEnabled && sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
                 if (activeAfterLoad.questions.length > sharedQCount && sharedQCount >= 0) {
                     activeAfterLoad.questions = activeAfterLoad.questions.slice(0, sharedQCount);
                     questionBank = activeAfterLoad.questions;
