@@ -269,7 +269,7 @@
             <!-- Models Management Box -->
             <div class="mb-6 bg-slate-50/90 border border-slate-200 rounded-2xl p-4 sm:p-5 text-right">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h3 class="text-xs sm:text-sm font-extrabold text-slate-800">النماذج المتاحة (<span id="models-count-badge">1</span>)</h3>
+                    <h3 class="text-xs sm:text-sm font-extrabold text-slate-800">النماذج المحفوظة (<span id="models-count-badge">1</span>) — تُحفظ ولا تُحذف إلا بطلبك</h3>
                     <div class="flex items-center gap-2 flex-grow sm:flex-grow-0">
                         <input type="text" id="new-model-name-input" placeholder="اسم نموذج جديد..." class="flex-grow sm:w-44 p-2 rounded-xl border border-slate-300 focus:border-sky-500 focus:outline-none text-xs font-bold bg-white">
                         <button type="button" onclick="createNewModel()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition whitespace-nowrap">+ إضافة نموذج</button>
@@ -330,17 +330,17 @@
                     </div>
                 </div>
 
-                <!-- Share Link Box for Active Model -->
+                <!-- Fixed Share Link Box for All Models -->
                 <div class="mb-3 p-3 rounded-xl bg-sky-50/90 border border-sky-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                     <div class="min-w-0 flex-grow">
-                        <div class="text-[11px] font-extrabold text-sky-900 mb-1">رابط مشاركة النموذج الحالي:</div>
+                        <div class="text-[11px] font-extrabold text-sky-900 mb-1">رابط مشاركة النماذج الموحد (ثابت ولا يتغير حسب رقم النموذج أو اسمه):</div>
                         <input type="text" id="active-model-share-link" readonly dir="ltr" class="w-full px-2.5 py-1.5 rounded-lg bg-white border border-sky-200 text-xs font-mono text-slate-700 focus:outline-none">
                     </div>
                     <button type="button" onclick="copyActiveModelShareLink()" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow transition whitespace-nowrap shrink-0">
-                        نسخ الرابط
+                        نسخ الرابط الثابت
                     </button>
                 </div>
-                <div id="share-link-copy-msg" class="hidden text-[11px] font-bold text-emerald-700 mb-2">تم نسخ رابط النموذج بنجاح</div>
+                <div id="share-link-copy-msg" class="hidden text-[11px] font-bold text-emerald-700 mb-2">تم نسخ رابط النماذج الثابت بنجاح</div>
 
                 <div id="models-list-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto custom-scrollbar">
                     <!-- Models cards injected here -->
@@ -414,7 +414,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <h3 class="text-sm font-extrabold text-slate-700">قائمة جميع الأسئلة (<span id="manage-q-count">15</span>)</h3>
                     <div class="flex items-center gap-2">
-                        <button type="button" onclick="clearCurrentModelQuestions()" class="text-xs text-rose-700 hover:text-rose-800 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 transition">تصفير الأسئلة</button>
+                        <button type="button" onclick="clearCurrentModelQuestions()" class="text-xs text-rose-700 hover:text-rose-800 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 transition">تصفير المصفوفة الحالية</button>
                         <button type="button" onclick="resetToDefaultQuestions()" class="text-xs text-amber-600 hover:text-amber-700 font-bold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 transition">استعادة الأسئلة الافتراضية</button>
                     </div>
                 </div>
@@ -428,16 +428,19 @@
                     <span class="text-[11px] font-bold text-indigo-600 bg-indigo-100 px-2.5 py-0.5 rounded-full">يدعم الاختيار، صح وخطأ، والمزاوجة</span>
                 </div>
                 <p class="text-xs text-slate-600 mb-3 leading-relaxed">
-                    الصق هنا مصفوفة الأسئلة (مثل <code class="bg-white px-1.5 py-0.5 rounded border text-indigo-700">const rawQuizData = [ ... ]</code>) ثم اضغط على زر التوزيع لتُضاف أسئلتها فوراً إلى النموذج.
+                    الصق هنا مصفوفة الأسئلة (مثل <code class="bg-white px-1.5 py-0.5 rounded border text-indigo-700">const rawQuizData = [ ... ]</code>) ثم اختر تصفير المصفوفة الحالية والبدء بها أو إضافتها.
                 </p>
                 <textarea id="bulk-array-input" rows="5" placeholder='الصق مصفوفة الأسئلة هنا...' class="w-full p-3 rounded-xl border border-indigo-200 focus:border-indigo-500 focus:outline-none text-xs font-mono bg-white text-slate-800 mb-3" dir="ltr"></textarea>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <span id="bulk-import-status" class="text-xs font-bold hidden"></span>
                     <div class="mr-auto flex flex-wrap items-center gap-2">
-                        <button type="button" onclick="distributePastedArray(false)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow transition flex items-center gap-1.5">
-                            <span>توزيع في النموذج الحالي</span>
+                        <button type="button" onclick="distributePastedArray('replace')" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow transition flex items-center gap-1.5">
+                            <span>تصفير المصفوفة والبدء بالجديدة</span>
                         </button>
-                        <button type="button" onclick="distributePastedArray(true)" class="px-4 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs sm:text-sm shadow transition flex items-center gap-1.5">
+                        <button type="button" onclick="distributePastedArray('append')" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow transition flex items-center gap-1.5">
+                            <span>إضافة إلى المصفوفة الحالية</span>
+                        </button>
+                        <button type="button" onclick="distributePastedArray('newModel')" class="px-4 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs sm:text-sm shadow transition flex items-center gap-1.5">
                             <span>توزيع في نموذج جديد</span>
                         </button>
                     </div>
@@ -1354,8 +1357,7 @@
             playSound('tick');
         }
 
-        function buildModelShareUrl(model) {
-            const targetModel = model || getActiveModel();
+        function buildModelShareUrl(_model) {
             const baseHref = window.location.href || '';
             let urlObj;
 
@@ -1372,22 +1374,10 @@
                 urlObj = new URL('https://aztlg-494c3.web.app/index.html');
             }
 
-            const activeTime = parseFloat(selectedTimeLimitMinutes) || parseFloat(targetModel.timeLimitMinutes) || 1;
-            const poolLen = Array.isArray(targetModel.questions) ? targetModel.questions.length : questionBank.length;
-            const effectiveDaily = Boolean(isDailyChallengeEnabled);
-            const rawDailyNum = parseInt(normalizeDigits(dailyChallengeQuestionCount), 10);
-            const effectiveDailyCount = (!isNaN(rawDailyNum) && rawDailyNum > 0) ? rawDailyNum : 10;
-
+            // رابط موحد وثابت لا يتغير حسب رقم النموذج أو اسمه ويفتح النموذج النشط تلقائياً
             urlObj.hash = '';
             urlObj.search = '';
             urlObj.searchParams.set('student', '1');
-            urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
-            urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
-            urlObj.searchParams.set('time', String(activeTime));
-            urlObj.searchParams.set('daily', effectiveDaily ? '1' : '0');
-            urlObj.searchParams.set('daily_count', String(effectiveDailyCount));
-            urlObj.searchParams.set('qcount', String(effectiveDaily ? effectiveDailyCount : poolLen));
-            urlObj.searchParams.set('live', '1');
             return urlObj.toString();
         }
 
@@ -1419,7 +1409,7 @@
             }
 
             if (msgEl) {
-                msgEl.textContent = "تم نسخ رابط النموذج بنجاح";
+                msgEl.textContent = "تم نسخ رابط النماذج الثابت بنجاح";
                 msgEl.classList.remove('hidden');
                 setTimeout(() => msgEl.classList.add('hidden'), 2500);
             }
@@ -2279,6 +2269,9 @@
             localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
             cancelEditMode();
             syncQuestionBankWithActiveModel();
+            if (isTeacherAuthenticated) {
+                saveQuestionsToStorage();
+            }
             if (document.getElementById('manage-screen') && !document.getElementById('manage-screen').classList.contains('hidden')) {
                 renderAllQuestionsList();
             }
@@ -2354,30 +2347,72 @@
             });
         }
 
+        function getDeletedModelIdsSet() {
+            try {
+                const raw = localStorage.getItem('arabic_grammar_deleted_model_ids_v1');
+                const arr = raw ? JSON.parse(raw) : [];
+                return new Set(Array.isArray(arr) ? arr.map(String) : []);
+            } catch (_) {
+                return new Set();
+            }
+        }
+
+        function markModelIdAsDeleted(modelId) {
+            if (!modelId) return;
+            const set = getDeletedModelIdsSet();
+            set.add(String(modelId));
+            localStorage.setItem('arabic_grammar_deleted_model_ids_v1', JSON.stringify(Array.from(set)));
+        }
+
         function deleteModelById(modelId) {
-            if (quizModels.length <= 1) {
-                const feedback = document.getElementById('form-feedback');
-                if (feedback) {
-                    feedback.textContent = "يجب أن يبقى نموذج واحد على الأقل!";
-                    feedback.className = "text-xs font-bold text-rose-600";
-                    feedback.classList.remove('hidden');
-                    setTimeout(() => {
-                        feedback.classList.add('hidden');
-                        feedback.className = "text-xs font-bold text-emerald-600 hidden";
-                    }, 3000);
+            const targetModel = quizModels.find(m => m.id.toString() === modelId.toString());
+            if (!targetModel) return;
+
+            markModelIdAsDeleted(modelId);
+            if (cloudDb) {
+                cloudDb.collection("quiz_models_sync").doc(String(modelId)).delete().catch(() => {});
+                if (targetModel.name) {
+                    cloudDb.collection("quiz_models_sync").doc(encodeURIComponent(String(targetModel.name).trim())).delete().catch(() => {});
                 }
-                return;
             }
-            quizModels = quizModels.filter(m => m.id.toString() !== modelId.toString());
-            if (activeModelId && activeModelId.toString() === modelId.toString()) {
-                activeModelId = quizModels[0].id;
+
+            if (quizModels.length <= 1) {
+                // إذا كان النموذج الوحيد المتبقي، يتم حذفه واستبداله بنموذج فارغ جديد مع إبقاء النماذج السابقة محفوظة عند إضافتها
+                const freshModel = {
+                    id: `model_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    name: 'نموذج جديد 1',
+                    timeLimitMinutes: selectedTimeLimitMinutes || 1,
+                    dailyChallengeEnabled: Boolean(isDailyChallengeEnabled),
+                    dailyChallengeCount: Number(dailyChallengeQuestionCount) || 10,
+                    questions: []
+                };
+                quizModels = [freshModel];
+                activeModelId = freshModel.id;
+            } else {
+                quizModels = quizModels.filter(m => m.id.toString() !== modelId.toString());
+                if (activeModelId && activeModelId.toString() === modelId.toString()) {
+                    activeModelId = quizModels[0].id;
+                }
             }
+
             cancelEditMode();
             saveQuestionsToStorage();
             syncQuestionBankWithActiveModel();
             if (document.getElementById('manage-screen') && !document.getElementById('manage-screen').classList.contains('hidden')) {
                 renderAllQuestionsList();
             }
+
+            const feedback = document.getElementById('form-feedback');
+            if (feedback) {
+                feedback.textContent = "تم حذف النموذج المحدد بنجاح مع الإبقاء على بقية النماذج القديمة محفوظة";
+                feedback.className = "text-xs font-bold text-rose-700";
+                feedback.classList.remove('hidden');
+                setTimeout(() => {
+                    feedback.classList.add('hidden');
+                    feedback.className = "text-xs font-bold text-emerald-600 hidden";
+                }, 3000);
+            }
+            playSound('tick');
         }
 
         function renderModelsUI() {
@@ -2551,6 +2586,10 @@
             if (!remoteModel || !remoteModel.id) return;
             const isGlobalDoc = remoteModel._docId === 'global_active_model' || remoteModel.isGlobalActive === true;
             const cleanId = String(remoteModel.activeModelId || remoteModel.id);
+            const deletedIds = getDeletedModelIdsSet();
+            if (!isGlobalDoc && deletedIds.has(cleanId)) {
+                return;
+            }
             const cleanName = (remoteModel.name || lessonTitleText || 'نموذج التحدي').trim();
             const cleanQuestions = Array.isArray(remoteModel.questions) ? remoteModel.questions : [];
             const recentlyEditedTime = (Date.now() - lastLocalTimeEditAt) < 4000;
@@ -2565,11 +2604,8 @@
                 ? (Number(dailyChallengeQuestionCount) > 0 ? Number(dailyChallengeQuestionCount) : 10)
                 : (Number(remoteModel.dailyChallengeCount) > 0 ? Number(remoteModel.dailyChallengeCount) : dailyChallengeQuestionCount);
 
-            const targetMatchIdx = quizModels.findIndex(m =>
-                String(m.id) === cleanId ||
-                (cleanName && String(m.name || '').trim() === cleanName)
-            );
-            const existingIdx = targetMatchIdx;
+            // البحث بالمعرف فقط (id) حتى لا يتم استبدال أو حذف النماذج القديمة عند تشابه الأسماء
+            const existingIdx = quizModels.findIndex(m => String(m.id) === cleanId);
             const resolvedLocalId = existingIdx >= 0 ? String(quizModels[existingIdx].id) : cleanId;
 
             const normalizedModel = {
@@ -2614,47 +2650,25 @@
                     };
                 }
             } else {
+                // إضافة النموذج السحابي مع الإبقاء على جميع النماذج القديمة محفوظة دون حذف
                 quizModels.push(normalizedModel);
             }
 
-            const urlParams = (() => {
-                try {
-                    return new URL(window.location.href || '').searchParams;
-                } catch (_) {
-                    return null;
-                }
-            })();
-            const hasExplicitUrlTarget = Boolean(urlParams && (urlParams.get('model') || urlParams.get('title')));
-
             const matchesActive = String(activeModelId) === resolvedLocalId ||
                 String(activeModelId) === cleanId ||
-                (!isTeacherAuthenticated && cleanName && String(lessonTitleText || '').trim() === cleanName) ||
-                (!isTeacherAuthenticated && isGlobalDoc && !hasExplicitUrlTarget);
+                (!isTeacherAuthenticated && isGlobalDoc);
 
             if (matchesActive) {
                 if (!isTeacherAuthenticated) {
-                    const resolvedModel = quizModels[existingIdx] || quizModels.find(m => String(m.id) === resolvedLocalId) || normalizedModel;
+                    const resolvedModel = quizModels.find(m => String(m.id) === resolvedLocalId) || normalizedModel;
                     activeModelId = resolvedModel.id;
                     lastStudentRemoteSyncAt = Date.now();
                     if (Array.isArray(resolvedModel.questions) && resolvedModel.questions.length > 0) {
                         questionBank = resolvedModel.questions;
                     }
-                    const urlTimeOverride = urlParams && urlParams.get('time') && !isNaN(parseFloat(urlParams.get('time'))) && parseFloat(urlParams.get('time')) > 0
-                        ? parseFloat(urlParams.get('time'))
-                        : null;
-                    const urlCountOverride = urlParams && (urlParams.get('daily_count') || urlParams.get('qcount'));
-                    const parsedUrlCount = urlCountOverride && !isNaN(parseInt(urlCountOverride, 10)) && parseInt(urlCountOverride, 10) > 0
-                        ? parseInt(urlCountOverride, 10)
-                        : null;
-
-                    selectedTimeLimitMinutes = urlTimeOverride || parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
-                    if (parsedUrlCount !== null) {
-                        isDailyChallengeEnabled = true;
-                        dailyChallengeQuestionCount = parsedUrlCount;
-                    } else {
-                        isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
-                        dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
-                    }
+                    selectedTimeLimitMinutes = parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
+                    isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
+                    dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
                     localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
                     localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
                     localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
@@ -2694,6 +2708,7 @@
                 const docs = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data() || {};
+                    if (data.aliasForModelId) return;
                     docs.push({
                         ...data,
                         id: data.id || doc.id,
@@ -2790,7 +2805,7 @@
             renderAllQuestionsList();
             const fb = document.getElementById('form-feedback');
             if (fb) {
-                fb.textContent = "تم تصفير أسئلة النموذج الحالي بنجاح، يمكنك الآن لصق أسئلتك الجديدة";
+                fb.textContent = "تم تصفير مصفوفة النموذج الحالي بنجاح، يمكنك الآن البدء بمصفوفة جديدة";
                 fb.className = "text-xs font-bold text-rose-700";
                 fb.classList.remove('hidden');
                 setTimeout(() => {
@@ -2874,7 +2889,7 @@
             });
         }
 
-        function distributePastedArray(inNewModel = false) {
+        function distributePastedArray(mode = 'append') {
             const textarea = document.getElementById('bulk-array-input');
             const statusEl = document.getElementById('bulk-import-status');
             if (!textarea) return;
@@ -2895,8 +2910,13 @@
                 const distributed = distributeRawQuizData(itemsArray);
                 if (distributed.length === 0) return;
 
-                if (inNewModel) {
+                if (mode === 'newModel' || mode === true) {
                     createNewModel(`نموذج مستورد (${quizModels.length + 1})`, distributed);
+                } else if (mode === 'replace') {
+                    questionBank = [...distributed];
+                    cancelEditMode();
+                    saveQuestionsToStorage();
+                    renderAllQuestionsList();
                 } else {
                     questionBank = [...questionBank, ...distributed];
                     saveQuestionsToStorage();
@@ -2904,7 +2924,9 @@
                 }
 
                 if (statusEl) {
-                    statusEl.textContent = `تم توزيع ${distributed.length} سؤال بنجاح`;
+                    statusEl.textContent = mode === 'replace'
+                        ? `تم تصفير المصفوفة القديمة والبدء بالمصفوفة الجديدة (${distributed.length} سؤال)`
+                        : `تم توزيع ${distributed.length} سؤال بنجاح`;
                     statusEl.className = "text-xs font-bold text-emerald-700";
                     statusEl.classList.remove('hidden');
                 }
@@ -3352,39 +3374,13 @@
         }
 
         window.onload = function() {
-            let sharedModelId = null;
-            let sharedTitle = null;
-            let sharedQCount = null;
-            let sharedTimeLimit = null;
-            let sharedDailyFlag = null;
-            let sharedDailyCount = null;
-
             try {
                 const currentHref = window.location.href || '';
                 if (currentHref && !currentHref.startsWith('blob:') && !currentHref.startsWith('about:')) {
                     const parsedUrl = new URL(currentHref);
-                    const rawModel = parsedUrl.searchParams.get('model');
                     const studentFlag = parsedUrl.searchParams.get('student');
-                    sharedModelId = rawModel ? decodeURIComponent(rawModel) : null;
-                    sharedTitle = parsedUrl.searchParams.get('title');
-                    if (studentFlag === '1' || Boolean(sharedModelId) || Boolean(sharedTitle)) {
+                    if (studentFlag === '1') {
                         isStudentSharedView = true;
-                    }
-                    const rawQCount = parsedUrl.searchParams.get('qcount');
-                    if (rawQCount !== null && !isNaN(parseInt(rawQCount, 10))) {
-                        sharedQCount = parseInt(rawQCount, 10);
-                    }
-                    const rawTime = parsedUrl.searchParams.get('time');
-                    if (rawTime !== null && !isNaN(parseFloat(rawTime)) && parseFloat(rawTime) > 0) {
-                        sharedTimeLimit = parseFloat(rawTime);
-                    }
-                    const rawDaily = parsedUrl.searchParams.get('daily');
-                    if (rawDaily === '1' || rawDaily === '0') {
-                        sharedDailyFlag = rawDaily === '1';
-                    }
-                    const rawDailyCount = parsedUrl.searchParams.get('daily_count');
-                    if (rawDailyCount !== null && !isNaN(parseInt(rawDailyCount, 10)) && parseInt(rawDailyCount, 10) > 0) {
-                        sharedDailyCount = parseInt(rawDailyCount, 10);
                     }
                 }
             } catch (_) {}
@@ -3404,75 +3400,6 @@
             loadStudentInfo();
             loadHighScore();
             loadQuestionsFromStorage();
-
-            if (sharedModelId && quizModels.some(m => m.id.toString() === sharedModelId.toString())) {
-                activeModelId = sharedModelId;
-                localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
-                syncQuestionBankWithActiveModel();
-            } else if (sharedModelId) {
-                activeModelId = sharedModelId;
-                localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
-            } else if (sharedTitle) {
-                const byTitle = quizModels.find(m => String(m.name || '').trim() === String(sharedTitle).trim());
-                if (byTitle) {
-                    activeModelId = byTitle.id;
-                    localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
-                    syncQuestionBankWithActiveModel();
-                } else {
-                    applyLessonTitle(sharedTitle);
-                }
-            }
-
-            if (sharedTimeLimit !== null) {
-                if (isStudentSharedView) {
-                    selectedTimeLimitMinutes = sharedTimeLimit;
-                    const activeTarget = getActiveModel();
-                    if (activeTarget) activeTarget.timeLimitMinutes = sharedTimeLimit;
-                    localStorage.setItem('arabic_grammar_time_limit_v1', String(sharedTimeLimit));
-                    syncTimeDisplayUI(false);
-                    refreshShareLinkUI();
-                } else {
-                    applyTeacherTimeLimit(sharedTimeLimit, true);
-                }
-            }
-
-            if (sharedDailyFlag !== null) {
-                isDailyChallengeEnabled = sharedDailyFlag;
-                const activeTarget = getActiveModel();
-                if (activeTarget) activeTarget.dailyChallengeEnabled = sharedDailyFlag;
-                if (!isStudentSharedView) {
-                    localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
-                }
-            }
-            if (sharedDailyCount !== null) {
-                dailyChallengeQuestionCount = sharedDailyCount;
-                const activeTarget = getActiveModel();
-                if (activeTarget) activeTarget.dailyChallengeCount = sharedDailyCount;
-                if (!isStudentSharedView) {
-                    localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
-                }
-            }
-
-            const activeAfterLoad = getActiveModel();
-            if (sharedQCount !== null && !isNaN(sharedQCount) && sharedQCount > 0) {
-                if (!isDailyChallengeEnabled) {
-                    isDailyChallengeEnabled = true;
-                }
-                dailyChallengeQuestionCount = sharedQCount;
-                if (activeAfterLoad) {
-                    activeAfterLoad.dailyChallengeEnabled = true;
-                    activeAfterLoad.dailyChallengeCount = sharedQCount;
-                }
-            } else if (!isDailyChallengeEnabled && sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
-                if (sharedQCount > activeAfterLoad.questions.length && sharedQCount >= 0) {
-                    activeAfterLoad.questions = activeAfterLoad.questions.slice(0, sharedQCount);
-                    questionBank = activeAfterLoad.questions;
-                    if (!isStudentSharedView) {
-                        saveQuestionsToStorage();
-                    }
-                    updateQuestionCounters();
-                }
-            }
 
             syncTimeDisplayUI();
             syncDailyChallengeUI();
