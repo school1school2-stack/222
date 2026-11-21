@@ -628,6 +628,7 @@
         let dailyChallengeQuestionCount = 10;
         let isCloudModelsSyncInitialized = false;
         let lastLocalTimeEditAt = 0;
+        let lastStudentRemoteSyncAt = 0;
         const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
         const LUXURY_BG_THEMES = [
@@ -2197,7 +2198,8 @@
                 localStorage.setItem('arabic_grammar_lesson_title', active.name);
             }
             const recentlyEditedTime = (Date.now() - lastLocalTimeEditAt) < 4000;
-            if (!recentlyEditedTime) {
+            const recentlySyncedStudentRemote = !isTeacherAuthenticated && ((Date.now() - lastStudentRemoteSyncAt) < 6000);
+            if (!recentlyEditedTime && !recentlySyncedStudentRemote) {
                 const savedGlobalTime = parseFloat(localStorage.getItem('arabic_grammar_time_limit_v1'));
                 const resolvedTime = isTeacherAuthenticated
                     ? (parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : selectedTimeLimitMinutes || 1))
@@ -2207,7 +2209,7 @@
                 active.timeLimitMinutes = selectedTimeLimitMinutes;
             }
 
-            if (!isTeacherAuthenticated) {
+            if (!isTeacherAuthenticated && !recentlySyncedStudentRemote) {
                 if (active && typeof active.dailyChallengeEnabled === 'boolean') {
                     isDailyChallengeEnabled = active.dailyChallengeEnabled;
                 }
@@ -2504,7 +2506,25 @@
 
             if (existingIdx >= 0) {
                 if (!isTeacherAuthenticated) {
-                    quizModels[existingIdx] = normalizedModel;
+                    const prevModel = quizModels[existingIdx] || {};
+                    const incomingQuestions = cleanQuestions.length > 0 ? cleanQuestions : (prevModel.questions || []);
+                    const incomingTime = (!isNaN(remoteTime) && remoteTime > 0) ? remoteTime : (parseFloat(prevModel.timeLimitMinutes) || selectedTimeLimitMinutes);
+                    const incomingDailyEnabled = typeof remoteModel.dailyChallengeEnabled === 'boolean'
+                        ? remoteModel.dailyChallengeEnabled
+                        : (typeof prevModel.dailyChallengeEnabled === 'boolean' ? prevModel.dailyChallengeEnabled : isDailyChallengeEnabled);
+                    const incomingDailyCount = Number(remoteModel.dailyChallengeCount) > 0
+                        ? Number(remoteModel.dailyChallengeCount)
+                        : (Number(prevModel.dailyChallengeCount) > 0 ? Number(prevModel.dailyChallengeCount) : dailyChallengeQuestionCount);
+
+                    quizModels[existingIdx] = {
+                        ...prevModel,
+                        id: cleanId,
+                        name: cleanName,
+                        timeLimitMinutes: incomingTime,
+                        dailyChallengeEnabled: incomingDailyEnabled,
+                        dailyChallengeCount: incomingDailyCount,
+                        questions: incomingQuestions
+                    };
                 } else {
                     quizModels[existingIdx] = {
                         ...quizModels[existingIdx],
@@ -2522,10 +2542,14 @@
 
             if (String(activeModelId) === cleanId) {
                 if (!isTeacherAuthenticated) {
-                    questionBank = cleanQuestions;
-                    selectedTimeLimitMinutes = cleanTime;
-                    isDailyChallengeEnabled = cleanDailyEnabled;
-                    dailyChallengeQuestionCount = cleanDailyCount;
+                    const resolvedModel = quizModels.find(m => String(m.id) === cleanId) || normalizedModel;
+                    lastStudentRemoteSyncAt = Date.now();
+                    if (Array.isArray(resolvedModel.questions) && resolvedModel.questions.length > 0) {
+                        questionBank = resolvedModel.questions;
+                    }
+                    selectedTimeLimitMinutes = parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
+                    isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
+                    dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
                     localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
                     localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
                     localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
