@@ -1334,16 +1334,7 @@
             urlObj.searchParams.set('student', '1');
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
-            const poolArr = Array.isArray(targetModel.questions) ? targetModel.questions : [];
-            const effectiveDailyCount = Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolArr.length)));
-            const qCount = isDailyChallengeEnabled ? effectiveDailyCount : poolArr.length;
-            urlObj.searchParams.set('qcount', String(qCount));
-            urlObj.searchParams.set('daily', isDailyChallengeEnabled ? '1' : '0');
-            if (isDailyChallengeEnabled) {
-                urlObj.searchParams.set('daily_count', String(effectiveDailyCount));
-            }
-            const modelTime = parseFloat(targetModel.timeLimitMinutes) || selectedTimeLimitMinutes || 1;
-            urlObj.searchParams.set('time', String(modelTime));
+            urlObj.searchParams.set('live', '1');
             return urlObj.toString();
         }
 
@@ -2472,10 +2463,11 @@
             const resolvedDailyEnabled = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
                 ? Boolean(isDailyChallengeEnabled)
                 : Boolean(modelObj.dailyChallengeEnabled ?? isDailyChallengeEnabled);
+            const resolvedTitle = String(modelObj.name || lessonTitleText || 'نموذج التحدي');
 
             const payload = {
                 id: String(modelObj.id),
-                name: String(modelObj.name || lessonTitleText || 'نموذج التحدي'),
+                name: resolvedTitle,
                 timeLimitMinutes: resolvedTime,
                 dailyChallengeEnabled: resolvedDailyEnabled,
                 dailyChallengeCount: resolvedDailyCount,
@@ -2485,6 +2477,12 @@
             cloudDb.collection("quiz_models_sync").doc(String(modelObj.id)).set(payload, { merge: true }).catch((err) => {
                 console.warn("Failed to sync model to cloud:", err);
             });
+            if (resolvedTitle) {
+                cloudDb.collection("quiz_models_sync").doc(encodeURIComponent(resolvedTitle)).set({
+                    ...payload,
+                    aliasForModelId: String(modelObj.id)
+                }, { merge: true }).catch(() => {});
+            }
         }
 
         function applyCloudModelSnapshot(remoteModel) {
@@ -2504,9 +2502,15 @@
                 ? (Number(dailyChallengeQuestionCount) > 0 ? Number(dailyChallengeQuestionCount) : 10)
                 : (Number(remoteModel.dailyChallengeCount) > 0 ? Number(remoteModel.dailyChallengeCount) : dailyChallengeQuestionCount);
 
-            const existingIdx = quizModels.findIndex(m => String(m.id) === cleanId);
+            const targetMatchIdx = quizModels.findIndex(m =>
+                String(m.id) === cleanId ||
+                (cleanName && String(m.name || '').trim() === cleanName)
+            );
+            const existingIdx = targetMatchIdx;
+            const resolvedLocalId = existingIdx >= 0 ? String(quizModels[existingIdx].id) : cleanId;
+
             const normalizedModel = {
-                id: cleanId,
+                id: resolvedLocalId,
                 name: cleanName,
                 timeLimitMinutes: cleanTime,
                 dailyChallengeEnabled: cleanDailyEnabled,
@@ -2528,7 +2532,7 @@
 
                     quizModels[existingIdx] = {
                         ...prevModel,
-                        id: cleanId,
+                        id: resolvedLocalId,
                         name: cleanName,
                         timeLimitMinutes: incomingTime,
                         dailyChallengeEnabled: incomingDailyEnabled,
@@ -2538,7 +2542,7 @@
                 } else {
                     quizModels[existingIdx] = {
                         ...quizModels[existingIdx],
-                        id: cleanId,
+                        id: resolvedLocalId,
                         name: cleanName,
                         timeLimitMinutes: cleanTime,
                         questions: cleanQuestions.length > 0 ? cleanQuestions : (quizModels[existingIdx].questions || []),
@@ -2550,9 +2554,14 @@
                 quizModels.push(normalizedModel);
             }
 
-            if (String(activeModelId) === cleanId) {
+            const matchesActive = String(activeModelId) === resolvedLocalId ||
+                String(activeModelId) === cleanId ||
+                (!isTeacherAuthenticated && cleanName && String(lessonTitleText || '').trim() === cleanName);
+
+            if (matchesActive) {
                 if (!isTeacherAuthenticated) {
-                    const resolvedModel = quizModels.find(m => String(m.id) === cleanId) || normalizedModel;
+                    const resolvedModel = quizModels[existingIdx] || quizModels.find(m => String(m.id) === resolvedLocalId) || normalizedModel;
+                    activeModelId = resolvedModel.id;
                     lastStudentRemoteSyncAt = Date.now();
                     if (Array.isArray(resolvedModel.questions) && resolvedModel.questions.length > 0) {
                         questionBank = resolvedModel.questions;
@@ -2560,6 +2569,7 @@
                     selectedTimeLimitMinutes = parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
                     isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
                     dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
+                    localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
                     localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
                     localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
                     localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
@@ -3304,6 +3314,28 @@
             } else if (sharedModelId) {
                 activeModelId = sharedModelId;
                 localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
+            } else if (sharedTitle) {
+                const byTitle = quizModels.find(m => String(m.name || '').trim() === String(sharedTitle).trim());
+                if (byTitle) {
+                    activeModelId = byTitle.id;
+                    localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
+                    syncQuestionBankWithActiveModel();
+                } else {
+                    applyLessonTitle(sharedTitle);
+                }
+            }
+
+            if (sharedTimeLimit !== null && !isStudentSharedView) {
+                applyTeacherTimeLimit(sharedTimeLimit, true);
+            }
+
+            if (sharedDailyFlag !== null && !isStudentSharedView) {
+                isDailyChallengeEnabled = sharedDailyFlag;
+                localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+            }
+            if (sharedDailyCount !== null && !isStudentSharedView) {
+                dailyChallengeQuestionCount = sharedDailyCount;
+                localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
             }
 
             if (sharedTimeLimit !== null) {
