@@ -1180,7 +1180,7 @@
             if (!rawStr) return;
             const parsed = parseInt(rawStr, 10);
             if (isNaN(parsed) || parsed < 1) return;
-            const nextCount = Math.min(parsed, 200);
+            const nextCount = parsed;
             lastLocalTimeEditAt = Date.now();
             dailyChallengeQuestionCount = nextCount;
             const active = getActiveModel();
@@ -2463,12 +2463,22 @@
         function syncModelToCloud(modelObj) {
             if (!cloudDb || !modelObj || !modelObj.id) return;
             const safeQuestions = Array.isArray(modelObj.questions) ? modelObj.questions : [];
+            const resolvedTime = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
+                ? (parseFloat(selectedTimeLimitMinutes) || parseFloat(modelObj.timeLimitMinutes) || 1)
+                : (parseFloat(modelObj.timeLimitMinutes) || parseFloat(selectedTimeLimitMinutes) || 1);
+            const resolvedDailyCount = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
+                ? (Number(dailyChallengeQuestionCount) || Number(modelObj.dailyChallengeCount) || 10)
+                : (Number(modelObj.dailyChallengeCount) || Number(dailyChallengeQuestionCount) || 10);
+            const resolvedDailyEnabled = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
+                ? Boolean(isDailyChallengeEnabled)
+                : Boolean(modelObj.dailyChallengeEnabled ?? isDailyChallengeEnabled);
+
             const payload = {
                 id: String(modelObj.id),
                 name: String(modelObj.name || lessonTitleText || 'نموذج التحدي'),
-                timeLimitMinutes: parseFloat(modelObj.timeLimitMinutes) || selectedTimeLimitMinutes || 1,
-                dailyChallengeEnabled: Boolean(modelObj.dailyChallengeEnabled ?? isDailyChallengeEnabled),
-                dailyChallengeCount: Number(modelObj.dailyChallengeCount ?? dailyChallengeQuestionCount) || 10,
+                timeLimitMinutes: resolvedTime,
+                dailyChallengeEnabled: resolvedDailyEnabled,
+                dailyChallengeCount: resolvedDailyCount,
                 questions: safeQuestions,
                 updatedAt: Date.now()
             };
@@ -3297,7 +3307,16 @@
             }
 
             if (sharedTimeLimit !== null) {
-                applyTeacherTimeLimit(sharedTimeLimit, true);
+                if (isStudentSharedView) {
+                    selectedTimeLimitMinutes = sharedTimeLimit;
+                    const activeTarget = getActiveModel();
+                    if (activeTarget) activeTarget.timeLimitMinutes = sharedTimeLimit;
+                    localStorage.setItem('arabic_grammar_time_limit_v1', String(sharedTimeLimit));
+                    syncTimeDisplayUI(false);
+                    refreshShareLinkUI();
+                } else {
+                    applyTeacherTimeLimit(sharedTimeLimit, true);
+                }
             }
 
             if (sharedDailyFlag !== null) {
