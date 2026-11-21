@@ -290,37 +290,22 @@
                         <span id="teacher-current-time-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">دقيقة واحدة (1 دقيقة)</span>
                     </div>
                     <div class="grid grid-cols-3 gap-2 mb-2.5">
-                        <button type="button" onpointerdown="selectTimeMode(1)" onclick="selectTimeMode(1)" id="mode-1" class="time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500">
+                        <button type="button" onclick="selectTimeMode(1)" id="mode-1" class="time-mode-btn active transition-all p-2.5 rounded-xl border-2 border-sky-500 bg-sky-50 text-sky-800 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-500">
                             <span class="text-lg font-black">1</span>
                             <span class="text-[11px] text-sky-600 font-medium">دقيقة واحدة</span>
                         </button>
-                        <button type="button" onpointerdown="selectTimeMode(2)" onclick="selectTimeMode(2)" id="mode-2" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
+                        <button type="button" onclick="selectTimeMode(2)" id="mode-2" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
                             <span class="text-lg font-black">2</span>
                             <span class="text-[11px] text-slate-500 font-medium">دقيقتان</span>
                         </button>
-                        <button type="button" onpointerdown="selectTimeMode(3)" onclick="selectTimeMode(3)" id="mode-3" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
+                        <button type="button" onclick="selectTimeMode(3)" id="mode-3" class="time-mode-btn transition-all p-2.5 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold flex flex-col items-center gap-0.5 shadow-xs hover:border-sky-300">
                             <span class="text-lg font-black">3</span>
                             <span class="text-[11px] text-slate-500 font-medium">3 دقائق</span>
                         </button>
                     </div>
                     <div class="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200">
                         <label for="custom-time-input" class="text-xs font-bold text-slate-600">أو أدخل وقتاً مخصصاً بالدقائق:</label>
-                        <input type="text" inputmode="decimal" id="custom-time-input" placeholder="مثلاً: 10 أو 20 أو 30" oninput="setCustomTime(this.value)" onchange="setCustomTime(this.value)" onblur="setCustomTime(this.value)" onkeyup="setCustomTime(this.value)" class="w-32 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
-                    </div>
-                </div>
-
-                <!-- Daily Challenge Controller (Teacher Only) -->
-                <div class="mb-3 p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-2.5">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-black text-indigo-950">
-                            <input type="checkbox" id="daily-challenge-enabled-toggle" onchange="toggleDailyChallengeEnabled(this.checked)" onclick="toggleDailyChallengeEnabled(this.checked)" class="w-4 h-4 rounded accent-indigo-600">
-                            <span>تفعيل وضع «تحدي اليوم» (محاولة واحدة كل 24 ساعة)</span>
-                        </label>
-                        <span id="daily-pool-stats-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">بنك الأسئلة: 0 سؤال</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-indigo-200">
-                        <label for="daily-questions-count-input" class="text-xs font-bold text-slate-700">عدد الأسئلة المختارة يومياً من البنك (مثلاً 5 أو 10 أو 15):</label>
-                        <input type="number" min="1" max="200" id="daily-questions-count-input" value="10" oninput="updateDailyQuestionsCount(this.value)" onchange="updateDailyQuestionsCount(this.value)" onblur="updateDailyQuestionsCount(this.value)" onkeyup="updateDailyQuestionsCount(this.value)" class="w-28 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-indigo-500 focus:outline-none font-black text-indigo-900 text-xs bg-slate-50">
+                        <input type="text" inputmode="decimal" id="custom-time-input" placeholder="مثلاً: 10 أو 20 أو 30" oninput="setCustomTime(this.value)" onchange="setCustomTime(this.value)" class="w-32 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-sky-500 focus:outline-none font-bold text-sky-800 text-xs bg-slate-50">
                     </div>
                 </div>
 
@@ -628,7 +613,6 @@
         let dailyChallengeQuestionCount = 10;
         let isCloudModelsSyncInitialized = false;
         let lastLocalTimeEditAt = 0;
-        let lastStudentRemoteSyncAt = 0;
         const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
         const LUXURY_BG_THEMES = [
@@ -921,11 +905,6 @@
             const parsed = parseFloat(normalized);
             if (isNaN(parsed) || parsed <= 0) return;
             const cleanMinutes = Number(parsed);
-            if (selectedTimeLimitMinutes === cleanMinutes && !fromCustomTyping) {
-                syncTimeDisplayUI(false);
-                refreshShareLinkUI();
-                return;
-            }
             lastLocalTimeEditAt = Date.now();
             selectedTimeLimitMinutes = cleanMinutes;
             const active = getActiveModel();
@@ -1180,8 +1159,7 @@
             if (!rawStr) return;
             const parsed = parseInt(rawStr, 10);
             if (isNaN(parsed) || parsed < 1) return;
-            const nextCount = parsed;
-            lastLocalTimeEditAt = Date.now();
+            const nextCount = Math.min(parsed, 200);
             dailyChallengeQuestionCount = nextCount;
             const active = getActiveModel();
             if (active) {
@@ -1334,7 +1312,16 @@
             urlObj.searchParams.set('student', '1');
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
-            urlObj.searchParams.set('live', '1');
+            const poolArr = Array.isArray(targetModel.questions) ? targetModel.questions : [];
+            const effectiveDailyCount = Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolArr.length)));
+            const qCount = isDailyChallengeEnabled ? effectiveDailyCount : poolArr.length;
+            urlObj.searchParams.set('qcount', String(qCount));
+            urlObj.searchParams.set('daily', isDailyChallengeEnabled ? '1' : '0');
+            if (isDailyChallengeEnabled) {
+                urlObj.searchParams.set('daily_count', String(effectiveDailyCount));
+            }
+            const modelTime = parseFloat(targetModel.timeLimitMinutes) || selectedTimeLimitMinutes || 1;
+            urlObj.searchParams.set('time', String(modelTime));
             return urlObj.toString();
         }
 
@@ -2189,8 +2176,7 @@
                 localStorage.setItem('arabic_grammar_lesson_title', active.name);
             }
             const recentlyEditedTime = (Date.now() - lastLocalTimeEditAt) < 4000;
-            const recentlySyncedStudentRemote = !isTeacherAuthenticated && ((Date.now() - lastStudentRemoteSyncAt) < 6000);
-            if (!recentlyEditedTime && !recentlySyncedStudentRemote) {
+            if (!recentlyEditedTime) {
                 const savedGlobalTime = parseFloat(localStorage.getItem('arabic_grammar_time_limit_v1'));
                 const resolvedTime = isTeacherAuthenticated
                     ? (parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : selectedTimeLimitMinutes || 1))
@@ -2200,7 +2186,7 @@
                 active.timeLimitMinutes = selectedTimeLimitMinutes;
             }
 
-            if (!isTeacherAuthenticated && !recentlySyncedStudentRemote) {
+            if (!isTeacherAuthenticated) {
                 if (active && typeof active.dailyChallengeEnabled === 'boolean') {
                     isDailyChallengeEnabled = active.dailyChallengeEnabled;
                 }
@@ -2454,35 +2440,18 @@
         function syncModelToCloud(modelObj) {
             if (!cloudDb || !modelObj || !modelObj.id) return;
             const safeQuestions = Array.isArray(modelObj.questions) ? modelObj.questions : [];
-            const resolvedTime = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
-                ? (parseFloat(selectedTimeLimitMinutes) || parseFloat(modelObj.timeLimitMinutes) || 1)
-                : (parseFloat(modelObj.timeLimitMinutes) || parseFloat(selectedTimeLimitMinutes) || 1);
-            const resolvedDailyCount = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
-                ? (Number(dailyChallengeQuestionCount) || Number(modelObj.dailyChallengeCount) || 10)
-                : (Number(modelObj.dailyChallengeCount) || Number(dailyChallengeQuestionCount) || 10);
-            const resolvedDailyEnabled = (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id))
-                ? Boolean(isDailyChallengeEnabled)
-                : Boolean(modelObj.dailyChallengeEnabled ?? isDailyChallengeEnabled);
-            const resolvedTitle = String(modelObj.name || lessonTitleText || 'نموذج التحدي');
-
             const payload = {
                 id: String(modelObj.id),
-                name: resolvedTitle,
-                timeLimitMinutes: resolvedTime,
-                dailyChallengeEnabled: resolvedDailyEnabled,
-                dailyChallengeCount: resolvedDailyCount,
+                name: String(modelObj.name || lessonTitleText || 'نموذج التحدي'),
+                timeLimitMinutes: parseFloat(modelObj.timeLimitMinutes) || selectedTimeLimitMinutes || 1,
+                dailyChallengeEnabled: Boolean(modelObj.dailyChallengeEnabled ?? isDailyChallengeEnabled),
+                dailyChallengeCount: Number(modelObj.dailyChallengeCount ?? dailyChallengeQuestionCount) || 10,
                 questions: safeQuestions,
                 updatedAt: Date.now()
             };
             cloudDb.collection("quiz_models_sync").doc(String(modelObj.id)).set(payload, { merge: true }).catch((err) => {
                 console.warn("Failed to sync model to cloud:", err);
             });
-            if (resolvedTitle) {
-                cloudDb.collection("quiz_models_sync").doc(encodeURIComponent(resolvedTitle)).set({
-                    ...payload,
-                    aliasForModelId: String(modelObj.id)
-                }, { merge: true }).catch(() => {});
-            }
         }
 
         function applyCloudModelSnapshot(remoteModel) {
@@ -2502,15 +2471,9 @@
                 ? (Number(dailyChallengeQuestionCount) > 0 ? Number(dailyChallengeQuestionCount) : 10)
                 : (Number(remoteModel.dailyChallengeCount) > 0 ? Number(remoteModel.dailyChallengeCount) : dailyChallengeQuestionCount);
 
-            const targetMatchIdx = quizModels.findIndex(m =>
-                String(m.id) === cleanId ||
-                (cleanName && String(m.name || '').trim() === cleanName)
-            );
-            const existingIdx = targetMatchIdx;
-            const resolvedLocalId = existingIdx >= 0 ? String(quizModels[existingIdx].id) : cleanId;
-
+            const existingIdx = quizModels.findIndex(m => String(m.id) === cleanId);
             const normalizedModel = {
-                id: resolvedLocalId,
+                id: cleanId,
                 name: cleanName,
                 timeLimitMinutes: cleanTime,
                 dailyChallengeEnabled: cleanDailyEnabled,
@@ -2520,29 +2483,11 @@
 
             if (existingIdx >= 0) {
                 if (!isTeacherAuthenticated) {
-                    const prevModel = quizModels[existingIdx] || {};
-                    const incomingQuestions = cleanQuestions.length > 0 ? cleanQuestions : (prevModel.questions || []);
-                    const incomingTime = (!isNaN(remoteTime) && remoteTime > 0) ? remoteTime : (parseFloat(prevModel.timeLimitMinutes) || selectedTimeLimitMinutes);
-                    const incomingDailyEnabled = typeof remoteModel.dailyChallengeEnabled === 'boolean'
-                        ? remoteModel.dailyChallengeEnabled
-                        : (typeof prevModel.dailyChallengeEnabled === 'boolean' ? prevModel.dailyChallengeEnabled : isDailyChallengeEnabled);
-                    const incomingDailyCount = Number(remoteModel.dailyChallengeCount) > 0
-                        ? Number(remoteModel.dailyChallengeCount)
-                        : (Number(prevModel.dailyChallengeCount) > 0 ? Number(prevModel.dailyChallengeCount) : dailyChallengeQuestionCount);
-
-                    quizModels[existingIdx] = {
-                        ...prevModel,
-                        id: resolvedLocalId,
-                        name: cleanName,
-                        timeLimitMinutes: incomingTime,
-                        dailyChallengeEnabled: incomingDailyEnabled,
-                        dailyChallengeCount: incomingDailyCount,
-                        questions: incomingQuestions
-                    };
+                    quizModels[existingIdx] = normalizedModel;
                 } else {
                     quizModels[existingIdx] = {
                         ...quizModels[existingIdx],
-                        id: resolvedLocalId,
+                        id: cleanId,
                         name: cleanName,
                         timeLimitMinutes: cleanTime,
                         questions: cleanQuestions.length > 0 ? cleanQuestions : (quizModels[existingIdx].questions || []),
@@ -2554,22 +2499,12 @@
                 quizModels.push(normalizedModel);
             }
 
-            const matchesActive = String(activeModelId) === resolvedLocalId ||
-                String(activeModelId) === cleanId ||
-                (!isTeacherAuthenticated && cleanName && String(lessonTitleText || '').trim() === cleanName);
-
-            if (matchesActive) {
+            if (String(activeModelId) === cleanId) {
                 if (!isTeacherAuthenticated) {
-                    const resolvedModel = quizModels[existingIdx] || quizModels.find(m => String(m.id) === resolvedLocalId) || normalizedModel;
-                    activeModelId = resolvedModel.id;
-                    lastStudentRemoteSyncAt = Date.now();
-                    if (Array.isArray(resolvedModel.questions) && resolvedModel.questions.length > 0) {
-                        questionBank = resolvedModel.questions;
-                    }
-                    selectedTimeLimitMinutes = parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
-                    isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
-                    dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
-                    localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
+                    questionBank = cleanQuestions;
+                    selectedTimeLimitMinutes = cleanTime;
+                    isDailyChallengeEnabled = cleanDailyEnabled;
+                    dailyChallengeQuestionCount = cleanDailyCount;
                     localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
                     localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
                     localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
@@ -3314,41 +3249,10 @@
             } else if (sharedModelId) {
                 activeModelId = sharedModelId;
                 localStorage.setItem('arabic_grammar_active_model_id_v3', activeModelId.toString());
-            } else if (sharedTitle) {
-                const byTitle = quizModels.find(m => String(m.name || '').trim() === String(sharedTitle).trim());
-                if (byTitle) {
-                    activeModelId = byTitle.id;
-                    localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
-                    syncQuestionBankWithActiveModel();
-                } else {
-                    applyLessonTitle(sharedTitle);
-                }
-            }
-
-            if (sharedTimeLimit !== null && !isStudentSharedView) {
-                applyTeacherTimeLimit(sharedTimeLimit, true);
-            }
-
-            if (sharedDailyFlag !== null && !isStudentSharedView) {
-                isDailyChallengeEnabled = sharedDailyFlag;
-                localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
-            }
-            if (sharedDailyCount !== null && !isStudentSharedView) {
-                dailyChallengeQuestionCount = sharedDailyCount;
-                localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
             }
 
             if (sharedTimeLimit !== null) {
-                if (isStudentSharedView) {
-                    selectedTimeLimitMinutes = sharedTimeLimit;
-                    const activeTarget = getActiveModel();
-                    if (activeTarget) activeTarget.timeLimitMinutes = sharedTimeLimit;
-                    localStorage.setItem('arabic_grammar_time_limit_v1', String(sharedTimeLimit));
-                    syncTimeDisplayUI(false);
-                    refreshShareLinkUI();
-                } else {
-                    applyTeacherTimeLimit(sharedTimeLimit, true);
-                }
+                applyTeacherTimeLimit(sharedTimeLimit, true);
             }
 
             if (sharedDailyFlag !== null) {
