@@ -1199,12 +1199,13 @@
             urlObj.searchParams.set('model', encodeURIComponent(String(targetModel.id || 'model_default_1')));
             urlObj.searchParams.set('title', String(targetModel.name || lessonTitleText || 'نموذج التحدي'));
             const poolArr = Array.isArray(targetModel.questions) ? targetModel.questions : [];
-            const qCount = isDailyChallengeEnabled
-                ? Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolArr.length)))
-                : poolArr.length;
+            const effectiveDailyCount = Math.max(1, Math.min(Number(dailyChallengeQuestionCount) || 10, Math.max(1, poolArr.length)));
+            const qCount = isDailyChallengeEnabled ? effectiveDailyCount : poolArr.length;
             urlObj.searchParams.set('qcount', String(qCount));
             urlObj.searchParams.set('daily', isDailyChallengeEnabled ? '1' : '0');
-            urlObj.searchParams.set('daily_count', String(Number(dailyChallengeQuestionCount) || 10));
+            if (isDailyChallengeEnabled) {
+                urlObj.searchParams.set('daily_count', String(effectiveDailyCount));
+            }
             const modelTime = parseFloat(targetModel.timeLimitMinutes) || selectedTimeLimitMinutes || 1;
             urlObj.searchParams.set('time', String(modelTime));
             return urlObj.toString();
@@ -3070,13 +3071,15 @@
                 }
             } catch (_) {}
 
-            const savedDailyEnabled = localStorage.getItem('arabic_grammar_daily_enabled_v1');
-            if (savedDailyEnabled !== null) {
-                isDailyChallengeEnabled = savedDailyEnabled === '1';
-            }
-            const savedDailyCount = parseInt(localStorage.getItem('arabic_grammar_daily_count_v1') || '', 10);
-            if (!isNaN(savedDailyCount) && savedDailyCount > 0) {
-                dailyChallengeQuestionCount = savedDailyCount;
+            if (!isStudentSharedView) {
+                const savedDailyEnabled = localStorage.getItem('arabic_grammar_daily_enabled_v1');
+                if (savedDailyEnabled !== null) {
+                    isDailyChallengeEnabled = savedDailyEnabled === '1';
+                }
+                const savedDailyCount = parseInt(localStorage.getItem('arabic_grammar_daily_count_v1') || '', 10);
+                if (!isNaN(savedDailyCount) && savedDailyCount > 0) {
+                    dailyChallengeQuestionCount = savedDailyCount;
+                }
             }
 
             updateTeacherRoleUI();
@@ -3099,33 +3102,25 @@
 
             if (sharedDailyFlag !== null) {
                 isDailyChallengeEnabled = sharedDailyFlag;
-                localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+                if (!isStudentSharedView) {
+                    localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+                }
             }
             if (sharedDailyCount !== null) {
                 dailyChallengeQuestionCount = sharedDailyCount;
-                localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
-            }
-
-            if (sharedTitle && sharedTitle.trim()) {
-                const cleanSharedTitle = sharedTitle.trim();
-                const active = getActiveModel();
-                if (active) active.name = cleanSharedTitle;
-                applyLessonTitle(cleanSharedTitle);
-                localStorage.setItem('arabic_grammar_lesson_title', cleanSharedTitle);
-                saveQuestionsToStorage();
-            } else {
-                const savedTitle = localStorage.getItem('arabic_grammar_lesson_title');
-                if (savedTitle) {
-                    applyLessonTitle(savedTitle);
+                if (!isStudentSharedView) {
+                    localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
                 }
             }
 
             const activeAfterLoad = getActiveModel();
             if (!isDailyChallengeEnabled && sharedQCount !== null && activeAfterLoad && Array.isArray(activeAfterLoad.questions)) {
-                if (activeAfterLoad.questions.length > sharedQCount && sharedQCount >= 0) {
+                if (sharedQCount > activeAfterLoad.questions.length && sharedQCount >= 0) {
                     activeAfterLoad.questions = activeAfterLoad.questions.slice(0, sharedQCount);
                     questionBank = activeAfterLoad.questions;
-                    saveQuestionsToStorage();
+                    if (!isStudentSharedView) {
+                        saveQuestionsToStorage();
+                    }
                     updateQuestionCounters();
                 }
             }
