@@ -612,6 +612,7 @@
         let isDailyChallengeEnabled = false;
         let dailyChallengeQuestionCount = 10;
         let isCloudModelsSyncInitialized = false;
+        let lastLocalTimeEditAt = 0;
         const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
         const LUXURY_BG_THEMES = [
@@ -903,13 +904,17 @@
             const normalized = normalizeDigits(minutes).trim();
             const parsed = parseFloat(normalized);
             if (isNaN(parsed) || parsed <= 0) return;
-            selectedTimeLimitMinutes = parsed;
+            const cleanMinutes = Number(parsed);
+            lastLocalTimeEditAt = Date.now();
+            selectedTimeLimitMinutes = cleanMinutes;
             const active = getActiveModel();
             if (active) {
-                active.timeLimitMinutes = parsed;
+                active.timeLimitMinutes = cleanMinutes;
             }
-            localStorage.setItem('arabic_grammar_time_limit_v1', String(parsed));
+            localStorage.setItem('arabic_grammar_time_limit_v1', String(cleanMinutes));
             syncTimeDisplayUI(fromCustomTyping);
+            syncDailyChallengeUI();
+            refreshShareLinkUI();
             if (persist) {
                 saveQuestionsToStorage();
             }
@@ -2170,9 +2175,16 @@
                 applyLessonTitle(active.name);
                 localStorage.setItem('arabic_grammar_lesson_title', active.name);
             }
-            const savedGlobalTime = parseFloat(localStorage.getItem('arabic_grammar_time_limit_v1'));
-            const resolvedTime = parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : 1);
-            selectedTimeLimitMinutes = resolvedTime;
+            const recentlyEditedTime = (Date.now() - lastLocalTimeEditAt) < 4000;
+            if (!recentlyEditedTime) {
+                const savedGlobalTime = parseFloat(localStorage.getItem('arabic_grammar_time_limit_v1'));
+                const resolvedTime = isTeacherAuthenticated
+                    ? (parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : selectedTimeLimitMinutes || 1))
+                    : (parseFloat(active && active.timeLimitMinutes) || selectedTimeLimitMinutes || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : 1));
+                selectedTimeLimitMinutes = resolvedTime;
+            } else if (active) {
+                active.timeLimitMinutes = selectedTimeLimitMinutes;
+            }
 
             if (!isTeacherAuthenticated) {
                 if (active && typeof active.dailyChallengeEnabled === 'boolean') {
@@ -2186,7 +2198,7 @@
                 active.dailyChallengeCount = Number(dailyChallengeQuestionCount) || 10;
             }
 
-            syncTimeDisplayUI();
+            syncTimeDisplayUI(document.activeElement && document.activeElement.id === 'custom-time-input');
             syncDailyChallengeUI();
             updateQuestionCounters();
             renderModelsUI();
@@ -2447,7 +2459,11 @@
             const cleanId = String(remoteModel.id);
             const cleanName = (remoteModel.name || lessonTitleText || 'نموذج التحدي').trim();
             const cleanQuestions = Array.isArray(remoteModel.questions) ? remoteModel.questions : [];
-            const cleanTime = parseFloat(remoteModel.timeLimitMinutes) > 0 ? parseFloat(remoteModel.timeLimitMinutes) : selectedTimeLimitMinutes;
+            const recentlyEditedTime = (Date.now() - lastLocalTimeEditAt) < 4000;
+            const remoteTime = parseFloat(remoteModel.timeLimitMinutes);
+            const cleanTime = (isTeacherAuthenticated && recentlyEditedTime)
+                ? selectedTimeLimitMinutes
+                : (!isNaN(remoteTime) && remoteTime > 0 ? remoteTime : selectedTimeLimitMinutes);
             const cleanDailyEnabled = isTeacherAuthenticated
                 ? Boolean(isDailyChallengeEnabled)
                 : (typeof remoteModel.dailyChallengeEnabled === 'boolean' ? remoteModel.dailyChallengeEnabled : isDailyChallengeEnabled);
@@ -2493,12 +2509,18 @@
                     localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
                     localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
                     applyLessonTitle(cleanName);
-                } else if (cleanQuestions.length > 0) {
-                    questionBank = cleanQuestions;
+                } else {
+                    if (cleanQuestions.length > 0) {
+                        questionBank = cleanQuestions;
+                    }
+                    if (!recentlyEditedTime) {
+                        selectedTimeLimitMinutes = cleanTime;
+                        localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
+                    }
                 }
                 localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
                 localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
-                syncTimeDisplayUI();
+                syncTimeDisplayUI(document.activeElement && document.activeElement.id === 'custom-time-input');
                 syncDailyChallengeUI();
                 updateQuestionCounters();
                 renderModelsUI();
