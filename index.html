@@ -322,6 +322,12 @@
                         <label for="daily-questions-count-input" class="text-xs font-bold text-slate-700">عدد الأسئلة المختارة يومياً من البنك (مثلاً 5 أو 10 أو 15):</label>
                         <input type="number" min="1" max="200" id="daily-questions-count-input" value="10" oninput="updateDailyQuestionsCount(this.value)" onchange="updateDailyQuestionsCount(this.value)" onblur="updateDailyQuestionsCount(this.value)" onkeyup="updateDailyQuestionsCount(this.value)" class="w-28 text-center py-1 px-2.5 rounded-lg border border-slate-300 focus:border-indigo-500 focus:outline-none font-black text-indigo-900 text-xs bg-slate-50">
                     </div>
+                    <div class="flex items-center justify-between gap-2 pt-1">
+                        <span id="teacher-sync-status-msg" class="text-[11px] font-extrabold text-emerald-700 hidden">✓ تم حفظ الوقت وعدد الأسئلة ومزامنتها للطالب فوراً</span>
+                        <button type="button" onclick="forceSyncTeacherSettingsNow()" class="mr-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow transition">
+                            حفظ وتحديث الوقت وعدد الأسئلة للطالب الآن
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Share Link Box for Active Model -->
@@ -906,11 +912,6 @@
             const parsed = parseFloat(normalized);
             if (isNaN(parsed) || parsed <= 0) return;
             const cleanMinutes = Number(parsed);
-            if (selectedTimeLimitMinutes === cleanMinutes && !fromCustomTyping) {
-                syncTimeDisplayUI(false);
-                refreshShareLinkUI();
-                return;
-            }
             lastLocalTimeEditAt = Date.now();
             selectedTimeLimitMinutes = cleanMinutes;
             const active = getActiveModel();
@@ -1164,6 +1165,50 @@
             updateQuestionCounters();
             refreshShareLinkUI();
             saveQuestionsToStorage();
+        }
+
+        function forceSyncTeacherSettingsNow() {
+            if (!isTeacherAuthenticated) return;
+            const customTimeEl = document.getElementById('custom-time-input');
+            if (customTimeEl && customTimeEl.value.trim()) {
+                const parsedT = parseFloat(normalizeDigits(customTimeEl.value).trim());
+                if (!isNaN(parsedT) && parsedT > 0) {
+                    selectedTimeLimitMinutes = Number(parsedT);
+                }
+            }
+            const dailyCountEl = document.getElementById('daily-questions-count-input');
+            if (dailyCountEl && dailyCountEl.value.trim()) {
+                const parsedC = parseInt(normalizeDigits(dailyCountEl.value).trim(), 10);
+                if (!isNaN(parsedC) && parsedC >= 1) {
+                    dailyChallengeQuestionCount = Math.min(parsedC, 200);
+                }
+            }
+            const toggleEl = document.getElementById('daily-challenge-enabled-toggle');
+            if (toggleEl) {
+                isDailyChallengeEnabled = Boolean(toggleEl.checked);
+            }
+            lastLocalTimeEditAt = Date.now();
+            const active = getActiveModel();
+            if (active) {
+                active.timeLimitMinutes = selectedTimeLimitMinutes;
+                active.dailyChallengeEnabled = isDailyChallengeEnabled;
+                active.dailyChallengeCount = dailyChallengeQuestionCount;
+            }
+            localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
+            localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+            localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
+            syncTimeDisplayUI(false);
+            syncDailyChallengeUI();
+            updateQuestionCounters();
+            refreshShareLinkUI();
+            saveQuestionsToStorage();
+            const statusMsg = document.getElementById('teacher-sync-status-msg');
+            if (statusMsg) {
+                statusMsg.textContent = `✓ تم الحفظ والمزامنة للطالب: الزمن (${formatMinutesArabic(selectedTimeLimitMinutes)}) • الأسئلة (${isDailyChallengeEnabled ? dailyChallengeQuestionCount : questionBank.length})`;
+                statusMsg.classList.remove('hidden');
+                setTimeout(() => statusMsg.classList.add('hidden'), 4000);
+            }
+            playSound('correct');
         }
 
         function pickDailyQuestionsForToday(pool, requestedCount) {
@@ -2464,11 +2509,19 @@
                     aliasForModelId: String(modelObj.id)
                 }, { merge: true }).catch(() => {});
             }
+            if (isTeacherAuthenticated && String(activeModelId) === String(modelObj.id)) {
+                cloudDb.collection("quiz_models_sync").doc("global_active_model").set({
+                    ...payload,
+                    activeModelId: String(modelObj.id),
+                    isGlobalActive: true
+                }, { merge: true }).catch(() => {});
+            }
         }
 
         function applyCloudModelSnapshot(remoteModel) {
             if (!remoteModel || !remoteModel.id) return;
-            const cleanId = String(remoteModel.id);
+            const isGlobalDoc = remoteModel._docId === 'global_active_model' || remoteModel.isGlobalActive === true;
+            const cleanId = String(remoteModel.activeModelId || remoteModel.id);
             const cleanName = (remoteModel.name || lessonTitleText || 'نموذج التحدي').trim();
             const cleanQuestions = Array.isArray(remoteModel.questions) ? remoteModel.questions : [];
             const recentlyEditedTime = (Date.now() - lastLocalTimeEditAt) < 4000;
@@ -2535,9 +2588,19 @@
                 quizModels.push(normalizedModel);
             }
 
+            const hasExplicitUrlTarget = (() => {
+                try {
+                    const u = new URL(window.location.href || '');
+                    return Boolean(u.searchParams.get('model') || u.searchParams.get('title'));
+                } catch (_) {
+                    return false;
+                }
+            })();
+
             const matchesActive = String(activeModelId) === resolvedLocalId ||
                 String(activeModelId) === cleanId ||
-                (!isTeacherAuthenticated && cleanName && String(lessonTitleText || '').trim() === cleanName);
+                (!isTeacherAuthenticated && cleanName && String(lessonTitleText || '').trim() === cleanName) ||
+                (!isTeacherAuthenticated && isGlobalDoc && !hasExplicitUrlTarget);
 
             if (matchesActive) {
                 if (!isTeacherAuthenticated) {
@@ -2872,8 +2935,11 @@
                 ? active.questions
                 : (questionBank.length > 0 ? questionBank : defaultQuestionBank);
 
-            const selectedPool = isDailyChallengeEnabled
-                ? pickDailyQuestionsForToday(pool, dailyChallengeQuestionCount)
+            const effectiveDaily = Boolean(isDailyChallengeEnabled || (active && active.dailyChallengeEnabled));
+            const effectiveCount = Number(dailyChallengeQuestionCount) || Number(active && active.dailyChallengeCount) || 10;
+
+            const selectedPool = effectiveDaily
+                ? pickDailyQuestionsForToday(pool, effectiveCount)
                 : pool;
 
             totalModelQuestionsCount = selectedPool.length;
