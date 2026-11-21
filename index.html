@@ -1206,6 +1206,7 @@
                 active.timeLimitMinutes = selectedTimeLimitMinutes;
                 active.dailyChallengeEnabled = isDailyChallengeEnabled;
                 active.dailyChallengeCount = dailyChallengeQuestionCount;
+                active.updatedAt = Date.now();
             }
             localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
             localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
@@ -1215,6 +1216,19 @@
             updateQuestionCounters();
             refreshShareLinkUI();
             saveQuestionsToStorage();
+            if (cloudDb && active) {
+                cloudDb.collection("quiz_models_sync").doc("global_active_model").set({
+                    id: String(active.id),
+                    activeModelId: String(active.id),
+                    name: String(active.name || lessonTitleText || 'نموذج التحدي'),
+                    timeLimitMinutes: Number(selectedTimeLimitMinutes),
+                    dailyChallengeEnabled: Boolean(isDailyChallengeEnabled),
+                    dailyChallengeCount: Number(dailyChallengeQuestionCount),
+                    questions: Array.isArray(active.questions) ? active.questions : [],
+                    isGlobalActive: true,
+                    updatedAt: Date.now()
+                }, { merge: true }).catch(() => {});
+            }
             const statusMsg = document.getElementById('teacher-sync-status-msg');
             if (statusMsg) {
                 statusMsg.textContent = `✓ تم الحفظ والمزامنة للطالب: الزمن (${formatMinutesArabic(selectedTimeLimitMinutes)}) • الأسئلة (${isDailyChallengeEnabled ? dailyChallengeQuestionCount : questionBank.length})`;
@@ -2603,14 +2617,14 @@
                 quizModels.push(normalizedModel);
             }
 
-            const hasExplicitUrlTarget = (() => {
+            const urlParams = (() => {
                 try {
-                    const u = new URL(window.location.href || '');
-                    return Boolean(u.searchParams.get('model') || u.searchParams.get('title'));
+                    return new URL(window.location.href || '').searchParams;
                 } catch (_) {
-                    return false;
+                    return null;
                 }
             })();
+            const hasExplicitUrlTarget = Boolean(urlParams && (urlParams.get('model') || urlParams.get('title')));
 
             const matchesActive = String(activeModelId) === resolvedLocalId ||
                 String(activeModelId) === cleanId ||
@@ -2625,9 +2639,22 @@
                     if (Array.isArray(resolvedModel.questions) && resolvedModel.questions.length > 0) {
                         questionBank = resolvedModel.questions;
                     }
-                    selectedTimeLimitMinutes = parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
-                    isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
-                    dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
+                    const urlTimeOverride = urlParams && urlParams.get('time') && !isNaN(parseFloat(urlParams.get('time'))) && parseFloat(urlParams.get('time')) > 0
+                        ? parseFloat(urlParams.get('time'))
+                        : null;
+                    const urlCountOverride = urlParams && (urlParams.get('daily_count') || urlParams.get('qcount'));
+                    const parsedUrlCount = urlCountOverride && !isNaN(parseInt(urlCountOverride, 10)) && parseInt(urlCountOverride, 10) > 0
+                        ? parseInt(urlCountOverride, 10)
+                        : null;
+
+                    selectedTimeLimitMinutes = urlTimeOverride || parseFloat(resolvedModel.timeLimitMinutes) || selectedTimeLimitMinutes;
+                    if (parsedUrlCount !== null) {
+                        isDailyChallengeEnabled = true;
+                        dailyChallengeQuestionCount = parsedUrlCount;
+                    } else {
+                        isDailyChallengeEnabled = Boolean(resolvedModel.dailyChallengeEnabled);
+                        dailyChallengeQuestionCount = Number(resolvedModel.dailyChallengeCount) || dailyChallengeQuestionCount;
+                    }
                     localStorage.setItem('arabic_grammar_active_model_id_v3', String(activeModelId));
                     localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
                     localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
