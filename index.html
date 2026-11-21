@@ -1070,11 +1070,14 @@
             const active = getActiveModel();
             if (active) {
                 active.dailyChallengeCount = dailyChallengeQuestionCount;
+                active.dailyChallengeEnabled = Boolean(isDailyChallengeEnabled);
             }
             localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
-            saveQuestionsToStorage();
+            localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
             syncDailyChallengeUI();
+            updateQuestionCounters();
             refreshShareLinkUI();
+            saveQuestionsToStorage();
         }
 
         function pickDailyQuestionsForToday(pool, requestedCount) {
@@ -2082,11 +2085,16 @@
             const resolvedTime = parseFloat(active && active.timeLimitMinutes) || (!isNaN(savedGlobalTime) && savedGlobalTime > 0 ? savedGlobalTime : 1);
             selectedTimeLimitMinutes = resolvedTime;
 
-            if (active && typeof active.dailyChallengeEnabled === 'boolean') {
-                isDailyChallengeEnabled = active.dailyChallengeEnabled;
-            }
-            if (active && Number(active.dailyChallengeCount) > 0) {
-                dailyChallengeQuestionCount = Number(active.dailyChallengeCount);
+            if (!isTeacherAuthenticated) {
+                if (active && typeof active.dailyChallengeEnabled === 'boolean') {
+                    isDailyChallengeEnabled = active.dailyChallengeEnabled;
+                }
+                if (active && Number(active.dailyChallengeCount) > 0) {
+                    dailyChallengeQuestionCount = Number(active.dailyChallengeCount);
+                }
+            } else if (active) {
+                active.dailyChallengeEnabled = Boolean(isDailyChallengeEnabled);
+                active.dailyChallengeCount = Number(dailyChallengeQuestionCount) || 10;
             }
 
             syncTimeDisplayUI();
@@ -2369,24 +2377,34 @@
             };
 
             if (existingIdx >= 0) {
-                if (!isTeacherAuthenticated || cleanQuestions.length > 0) {
+                if (!isTeacherAuthenticated) {
                     quizModels[existingIdx] = normalizedModel;
+                } else if (cleanQuestions.length > 0) {
+                    quizModels[existingIdx] = {
+                        ...normalizedModel,
+                        dailyChallengeEnabled: Boolean(isDailyChallengeEnabled),
+                        dailyChallengeCount: Number(dailyChallengeQuestionCount) || 10
+                    };
                 }
             } else {
                 quizModels.push(normalizedModel);
             }
 
             if (String(activeModelId) === cleanId) {
-                questionBank = cleanQuestions;
-                selectedTimeLimitMinutes = cleanTime;
-                isDailyChallengeEnabled = cleanDailyEnabled;
-                dailyChallengeQuestionCount = cleanDailyCount;
+                if (!isTeacherAuthenticated) {
+                    questionBank = cleanQuestions;
+                    selectedTimeLimitMinutes = cleanTime;
+                    isDailyChallengeEnabled = cleanDailyEnabled;
+                    dailyChallengeQuestionCount = cleanDailyCount;
+                    localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
+                    localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
+                    localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
+                    applyLessonTitle(cleanName);
+                } else if (cleanQuestions.length > 0) {
+                    questionBank = cleanQuestions;
+                }
                 localStorage.setItem('arabic_grammar_models_v3', JSON.stringify(quizModels));
                 localStorage.setItem('arabic_grammar_all_questions_v2', JSON.stringify(questionBank));
-                localStorage.setItem('arabic_grammar_time_limit_v1', String(selectedTimeLimitMinutes));
-                localStorage.setItem('arabic_grammar_daily_enabled_v1', isDailyChallengeEnabled ? '1' : '0');
-                localStorage.setItem('arabic_grammar_daily_count_v1', String(dailyChallengeQuestionCount));
-                applyLessonTitle(cleanName);
                 syncTimeDisplayUI();
                 syncDailyChallengeUI();
                 updateQuestionCounters();
